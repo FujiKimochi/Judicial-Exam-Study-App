@@ -11,6 +11,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [supabaseUrl, setSupabaseUrl] = useState('');
   const [supabaseKey, setSupabaseKey] = useState('');
+  const [geminiApiKey, setGeminiApiKey] = useState('');
   const [isConnected, setIsConnected] = useState(false);
 
   // Initialize DB on App Mount
@@ -25,6 +26,7 @@ export default function App() {
         const parsed = JSON.parse(stored);
         setSupabaseUrl(parsed.url || '');
         setSupabaseKey(parsed.anonKey || '');
+        setGeminiApiKey(parsed.geminiApiKey || '');
       }
     } catch(e) {}
   }, []);
@@ -52,15 +54,12 @@ export default function App() {
 
   const handleSaveSettings = (e) => {
     e.preventDefault();
-    if (!supabaseUrl.trim() || !supabaseKey.trim()) {
-      triggerToast('請填寫完整 URL 與 Anon Key', 'warning');
-      return;
-    }
 
     try {
       localStorage.setItem('supabase_settings', JSON.stringify({
         url: supabaseUrl.trim(),
-        anonKey: supabaseKey.trim()
+        anonKey: supabaseKey.trim(),
+        geminiApiKey: geminiApiKey.trim()
       }));
       triggerToast('設定已儲存！即將重新載入...', 'success');
       setShowSettings(false);
@@ -143,13 +142,30 @@ export default function App() {
         <div className="lightbox" style={{ cursor: 'default' }}>
           <div className="glass-panel animate-fade-in" style={{ padding: '32px', maxWidth: '500px', width: '90%', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-secondary)', border: '1px solid var(--border-medium)' }}>
             <h2 style={{ fontSize: '20px', display: 'flex', alignItems: 'center', gap: '10px', color: 'white' }}>
-              ⚙️ Supabase 資料庫連線配置
+              ⚙️ 系統 API 與資料庫配置設定
             </h2>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.4' }}>
-              在此貼上您的 Supabase 連線憑證。系統將自動存取您指定的架構 <strong>`judicial_exam`</strong>。如果資料表為空，系統會自動匯入初始科目與論點。
+              請在此貼上您的連線金鑰。Gemini API Key 用於聯網與法律解析；Supabase 憑證則用於雲端備份與多圖儲存（若未填寫 Supabase 則自動儲存於本地）。
             </p>
 
             <form onSubmit={handleSaveSettings} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="form-group" style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '16px' }}>
+                <label className="form-label">🤖 Gemini API Key</label>
+                <input 
+                  type="password" 
+                  className="search-input"
+                  style={{ background: 'rgba(0,0,0,0.3)' }}
+                  placeholder="AIzaSy... (若空白則使用模擬 AI 服務)"
+                  value={geminiApiKey}
+                  onChange={(e) => setGeminiApiKey(e.target.value)}
+                />
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  可在 Google AI Studio 免費申請此金鑰。
+                </span>
+              </div>
+
+              <h4 style={{ color: 'white', fontSize: '14px', marginTop: '4px' }}>☁️ Supabase 雲端備份設定 (選填)</h4>
+
               <div className="form-group">
                 <label className="form-label">🌐 Supabase URL</label>
                 <input 
@@ -159,7 +175,6 @@ export default function App() {
                   placeholder="https://xxxxxx.supabase.co"
                   value={supabaseUrl}
                   onChange={(e) => setSupabaseUrl(e.target.value)}
-                  required
                 />
               </div>
 
@@ -172,12 +187,11 @@ export default function App() {
                   placeholder="eyJhbGciOiJIUzI1NiIsInR5c..."
                   value={supabaseKey}
                   onChange={(e) => setSupabaseKey(e.target.value)}
-                  required
                 />
               </div>
 
               <div style={{ padding: '10px', background: 'rgba(229,178,56,0.05)', border: '1px solid rgba(229,178,56,0.15)', borderRadius: '8px', fontSize: '11px', color: 'var(--accent-gold)' }}>
-                ⚠️ <strong>注意</strong>：請確認您已在 Supabase 後台 API 設定中，將 <strong>`judicial_exam`</strong> schema 加入 <strong>Exposed schemas</strong> 名單中。
+                ⚠️ <strong>注意</strong>：請確認您已在 Supabase 後台 API 設定中，將 <strong>`judicial_exam`</strong> schema 加入 <strong>Exposed schemas</strong> 名單，並設定好 <strong>`judicial-exam-assets`</strong> Storage Bucket。
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
