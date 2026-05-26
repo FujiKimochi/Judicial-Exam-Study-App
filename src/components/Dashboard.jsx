@@ -99,20 +99,25 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
   const [lightboxImg, setLightboxImg] = useState(null);
 
   // Load Data
-  const loadData = () => {
-    const subs = getSubjects();
-    const pts = getPoints();
-    const qsts = getQuestions();
-    const stt = getPointStats();
+  const loadData = async () => {
+    try {
+      const subs = await getSubjects();
+      const pts = await getPoints();
+      const qsts = await getQuestions();
+      const stt = await getPointStats();
 
-    setSubjects(subs);
-    setPoints(pts);
-    setQuestions(qsts);
-    setStats(stt);
+      setSubjects(subs);
+      setPoints(pts);
+      setQuestions(qsts);
+      setStats(stt);
 
-    // Default to first subject and point if not set
-    if (subs.length > 0 && !selectedSubjectId) {
-      setSelectedSubjectId(subs[0].id);
+      // Default to first subject and point if not set
+      if (subs.length > 0 && !selectedSubjectId) {
+        setSelectedSubjectId(subs[0].id);
+      }
+    } catch (e) {
+      console.error('Failed to load data', e);
+      triggerToast('載入資料庫失敗，請確認配置', 'warning');
     }
   };
 
@@ -133,18 +138,27 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
   }, [selectedSubjectId, points]);
 
   // Actions
-  const handleTogglePriority = (id) => {
-    const updated = togglePriority(id);
-    setQuestions(updated);
-    triggerToast('優先複習狀態已變更', 'warning');
+  const handleTogglePriority = async (id) => {
+    try {
+      const updated = await togglePriority(id);
+      setQuestions(updated);
+      triggerToast('優先複習狀態已變更', 'warning');
+    } catch (e) {
+      triggerToast('變更狀態失敗', 'warning');
+    }
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('確定要刪除這筆複習筆記嗎？')) {
-      const updated = deleteQuestion(id);
-      setQuestions(updated);
-      setStats(getPointStats());
-      triggerToast('筆記已刪除', 'success');
+      try {
+        const updated = await deleteQuestion(id);
+        setQuestions(updated);
+        const stt = await getPointStats();
+        setStats(stt);
+        triggerToast('筆記已刪除', 'success');
+      } catch (e) {
+        triggerToast('刪除失敗', 'warning');
+      }
     }
   };
 

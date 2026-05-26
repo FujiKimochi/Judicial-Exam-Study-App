@@ -30,17 +30,26 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
 
   const chatEndRef = useRef(null);
 
-  // Load points and subjects
+  // Load points and subjects asynchronously
   useEffect(() => {
-    setAllPoints(getPoints());
-    setAllSubjects(getSubjects());
-    
-    if (initialPointId) {
-      const pt = getPoints().find(p => p.id === initialPointId);
-      if (pt) {
-        setPointSearchQuery(pt.name);
+    const loadPointsAndSubjects = async () => {
+      try {
+        const pts = await getPoints();
+        const subs = await getSubjects();
+        setAllPoints(pts);
+        setAllSubjects(subs);
+        
+        if (initialPointId) {
+          const pt = pts.find(p => p.id === initialPointId);
+          if (pt) {
+            setPointSearchQuery(pt.name);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load points/subjects', e);
       }
-    }
+    };
+    loadPointsAndSubjects();
   }, [initialPointId]);
 
   // Scroll chat to bottom
@@ -182,7 +191,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
   };
 
   // Step 3 Final: Save Question to DB
-  const handleSaveQuestion = () => {
+  const handleSaveQuestion = async () => {
     if (!selectedPointId) {
       triggerToast('請選擇要歸檔的論點標籤', 'warning');
       return;
@@ -198,11 +207,17 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
       isPriority: isPriority
     };
 
-    saveQuestion(questionData);
-    triggerToast('筆記已成功歸檔儲存！', 'success');
-    
-    // Reset and return
-    onSaveSuccess();
+    setIsLoading(true);
+    try {
+      await saveQuestion(questionData);
+      triggerToast('筆記已成功歸檔儲存！', 'success');
+      onSaveSuccess();
+    } catch (e) {
+      console.error(e);
+      triggerToast('儲存失敗，請檢查資料庫連線與 RLS 權限配置。', 'warning');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
