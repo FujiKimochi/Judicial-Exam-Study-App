@@ -186,108 +186,150 @@ export const saveQuestion = async (questionData) => {
 
   if (isSupabaseConfigured()) {
     const supabase = getSupabaseClient();
-    const bucketName = 'judicial-exam-assets';
-    const qFolderId = questionData.id || `q-${Date.now()}`;
+    
+    if (!supabase) {
+      console.error('Supabase client is null despite being configured. Falling back to localStorage.');
+      // Fall through to localStorage path below
+    } else {
+      const bucketName = 'judicial-exam-assets';
+      const qFolderId = questionData.id || `q-${Date.now()}`;
 
-    // 1. Upload screenshots if they are Base64
-    const uploadedScreenshots = [];
-    for (let i = 0; i < (questionData.screenshots || []).length; i++) {
-      const src = questionData.screenshots[i];
-      if (src && src.startsWith('data:image/')) {
-        const filePath = `questions/${qFolderId}/screenshot-${i}-${Date.now()}.png`;
-        try {
-          const publicUrl = await uploadImageToSupabase(supabase, bucketName, filePath, src);
-          uploadedScreenshots.push(publicUrl);
-        } catch (err) {
-          console.error(err);
-          uploadedScreenshots.push(src); // Fallback to base64 if upload fails
+      // 1. Upload screenshots if they are Base64
+      const uploadedScreenshots = [];
+      for (let i = 0; i < (questionData.screenshots || []).length; i++) {
+        const src = questionData.screenshots[i];
+        if (src && src.startsWith('data:image/')) {
+          const filePath = `questions/${qFolderId}/screenshot-${i}-${Date.now()}.png`;
+          try {
+            const publicUrl = await uploadImageToSupabase(supabase, bucketName, filePath, src);
+            uploadedScreenshots.push(publicUrl);
+          } catch (err) {
+            console.error(err);
+            uploadedScreenshots.push(src); // Fallback to base64 if upload fails
+          }
+        } else {
+          uploadedScreenshots.push(src);
         }
-      } else {
-        uploadedScreenshots.push(src);
       }
-    }
 
-    // 2. Upload chat attachments if they are Base64
-    const updatedChatHistory = [];
-    if (questionData.chatHistory) {
-      for (let i = 0; i < questionData.chatHistory.length; i++) {
-        const chat = questionData.chatHistory[i];
-        if (chat.attachments && chat.attachments.length > 0) {
-          const uploadedAttachments = [];
-          for (let j = 0; j < chat.attachments.length; j++) {
-            const att = chat.attachments[j];
-            if (att && att.startsWith('data:image/')) {
-              const filePath = `chats/${qFolderId}/chat-${i}-${j}-${Date.now()}.png`;
-              try {
-                const publicUrl = await uploadImageToSupabase(supabase, bucketName, filePath, att);
-                uploadedAttachments.push(publicUrl);
-              } catch (err) {
-                console.error(err);
+      // 2. Upload chat attachments if they are Base64
+      const updatedChatHistory = [];
+      if (questionData.chatHistory) {
+        for (let i = 0; i < questionData.chatHistory.length; i++) {
+          const chat = questionData.chatHistory[i];
+          if (chat.attachments && chat.attachments.length > 0) {
+            const uploadedAttachments = [];
+            for (let j = 0; j < chat.attachments.length; j++) {
+              const att = chat.attachments[j];
+              if (att && att.startsWith('data:image/')) {
+                const filePath = `chats/${qFolderId}/chat-${i}-${j}-${Date.now()}.png`;
+                try {
+                  const publicUrl = await uploadImageToSupabase(supabase, bucketName, filePath, att);
+                  uploadedAttachments.push(publicUrl);
+                } catch (err) {
+                  console.error(err);
+                  uploadedAttachments.push(att);
+                }
+              } else {
                 uploadedAttachments.push(att);
               }
-            } else {
-              uploadedAttachments.push(att);
             }
+            updatedChatHistory.push({
+              ...chat,
+              attachments: uploadedAttachments
+            });
+          } else {
+            updatedChatHistory.push(chat);
           }
-          updatedChatHistory.push({
-            ...chat,
-            attachments: uploadedAttachments
-          });
-        } else {
-          updatedChatHistory.push(chat);
         }
       }
-    }
 
-    const finalQuestionData = {
-      ...questionData,
-      screenshots: uploadedScreenshots,
-      chatHistory: updatedChatHistory
-    };
+      const finalQuestionData = {
+        ...questionData,
+        screenshots: uploadedScreenshots,
+        chatHistory: updatedChatHistory
+      };
 
-    const dbObj = mapJsToDbQuestion(finalQuestionData);
+      const dbObj = mapJsToDbQuestion(finalQuestionData);
 
-    if (questionData.id) {
-      // Update
-      const { data, error } = await supabase
-        .from('questions')
-        .update(dbObj)
-        .eq('id', questionData.id)
-        .select();
-      if (error) throw error;
-      return await getQuestions();
-    } else {
-      // Insert
-      const { data, error } = await supabase
-        .from('questions')
-        .insert([dbObj])
-        .select();
-      if (error) throw error;
-      return await getQuestions();
+      if (questionData.id) {
+        // Update
+        const { data, error } = await supabase
+          .from('questions')
+          .update(dbObj)
+          .eq('id', questionData.id)
+          .select();
+        if (error) throw error;
+        return await getQuestions();
+      } else {
+        // Insert
+        const { data, error } = await supabase
+          .from('questions')
+          .insert([dbObj])
+          .select();
+        if (error) throw error;
+        return await getQuestions();
+      }
     }
   }
 
-  const questions = JSON.parse(localStorage.getItem(DB_KEYS.QUESTIONS));
-  
-  if (questionData.id) {
-    const idx = questions.findIndex(q => q.id === questionData.id);
+  // === localStorage fallback ===
+  let questions = [];
+  try {
+    const raw = localStorage.getItem(DB_KEYS.QUESTIONS);
+    questions = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(questions)) {
+      questions = [];
+    }
+  } catch (parseErr) {
+    console.error('Failed to parse localStorage questions, resetting', parseErr);
+    questions = [];
+  }
+
+  // Strip large Base64 screenshots to avoid exceeding localStorage quota (5MB limit)
+  const sanitizedData = { ...questionData };
+  if (sanitizedData.screenshots) {
+    sanitizedData.screenshots = sanitizedData.screenshots.map(src => {
+      // Keep base64 images but warn if they're very large
+      if (src && src.length > 500000) {
+        console.warn('Large Base64 screenshot detected (' + Math.round(src.length / 1024) + 'KB). May approach localStorage quota.');
+      }
+      return src;
+    });
+  }
+
+  if (sanitizedData.id) {
+    const idx = questions.findIndex(q => q.id === sanitizedData.id);
     if (idx !== -1) {
       questions[idx] = {
         ...questions[idx],
-        ...questionData,
+        ...sanitizedData,
         updatedAt: new Date().toISOString()
       };
     }
   } else {
     const newQuestion = {
-      ...questionData,
+      ...sanitizedData,
       id: `q-${Date.now()}`,
       createdAt: new Date().toISOString()
     };
     questions.push(newQuestion);
   }
   
-  localStorage.setItem(DB_KEYS.QUESTIONS, JSON.stringify(questions));
+  try {
+    localStorage.setItem(DB_KEYS.QUESTIONS, JSON.stringify(questions));
+  } catch (quotaErr) {
+    console.error('localStorage quota exceeded. Trying without screenshots...', quotaErr);
+    // Try saving without Base64 screenshots
+    const stripped = questions.map(q => ({
+      ...q,
+      screenshots: (q.screenshots || []).map(s => 
+        (s && s.startsWith('data:image/') && s.length > 100000) ? '[screenshot-too-large]' : s
+      )
+    }));
+    localStorage.setItem(DB_KEYS.QUESTIONS, JSON.stringify(stripped));
+  }
+  
   return questions;
 };
 

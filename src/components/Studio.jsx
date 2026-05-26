@@ -215,8 +215,9 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
       triggerToast('筆記已成功歸檔儲存！', 'success');
       onSaveSuccess();
     } catch (e) {
-      console.error(e);
-      triggerToast('儲存失敗，請檢查資料庫連線與 RLS 權限配置。', 'warning');
+      console.error('Save question failed:', e);
+      const errDetail = (e && e.message) ? e.message : (typeof e === 'string' ? e : JSON.stringify(e));
+      triggerToast('儲存失敗: ' + errDetail, 'warning');
     } finally {
       setIsLoading(false);
     }
