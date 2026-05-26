@@ -16,6 +16,17 @@ const getGeminiApiKey = () => {
   return key;
 };
 
+const getGeminiModel = () => {
+  let model = 'gemini-1.5-flash';
+  try {
+    const stored = localStorage.getItem('supabase_settings');
+    if (stored) {
+      model = JSON.parse(stored).geminiModel || model;
+    }
+  } catch (e) {}
+  return model;
+};
+
 // Mock search links fallback
 const getMockSearchLinks = (query) => {
   return [
@@ -83,7 +94,7 @@ export const generateInitialAnalysis = async (screenshots, customPrompt) => {
       }
     });
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${getGeminiModel()}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -195,7 +206,7 @@ export const chatWithAi = async (chatHistory, userMessage, attachments = []) => 
       parts: currentParts
     });
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${getGeminiModel()}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -236,7 +247,7 @@ export const searchExternalLinks = async (query) => {
   try {
     const promptText = `請幫我搜尋關於「${query}」包含具權威性之日本或台灣律師見解、法律事務所專欄或判決主旨的外部網站連結與出處。請儘量提供網址。`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${getGeminiModel()}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

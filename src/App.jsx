@@ -12,6 +12,7 @@ export default function App() {
   const [supabaseUrl, setSupabaseUrl] = useState('');
   const [supabaseKey, setSupabaseKey] = useState('');
   const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [geminiModel, setGeminiModel] = useState('gemini-1.5-flash');
   const [dbConnected, setDbConnected] = useState(false);
   const [aiConnected, setAiConnected] = useState(false);
 
@@ -29,7 +30,10 @@ export default function App() {
         const parsed = JSON.parse(stored);
         setSupabaseUrl(parsed.url || '');
         setSupabaseKey(parsed.anonKey || '');
+        setSupabaseUrl(parsed.url || '');
+        setSupabaseKey(parsed.anonKey || '');
         setGeminiApiKey(parsed.geminiApiKey || '');
+        setGeminiModel(parsed.geminiModel || 'gemini-1.5-flash');
         if (parsed.geminiApiKey) {
           hasGemini = true;
         }
@@ -67,7 +71,8 @@ export default function App() {
       localStorage.setItem('supabase_settings', JSON.stringify({
         url: supabaseUrl.trim(),
         anonKey: supabaseKey.trim(),
-        geminiApiKey: geminiApiKey.trim()
+        geminiApiKey: geminiApiKey.trim(),
+        geminiModel: geminiModel.trim() || 'gemini-1.5-flash'
       }));
       triggerToast('設定已儲存！即將重新載入...', 'success');
       setShowSettings(false);
@@ -179,6 +184,21 @@ export default function App() {
                 />
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                   可在 Google AI Studio 免費申請此金鑰。
+                </span>
+              </div>
+
+              <div className="form-group" style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '16px' }}>
+                <label className="form-label">🤖 Gemini AI Model ID</label>
+                <input 
+                  type="text" 
+                  className="search-input"
+                  style={{ background: 'rgba(0,0,0,0.3)' }}
+                  placeholder="gemini-1.5-flash (預設)"
+                  value={geminiModel}
+                  onChange={(e) => setGeminiModel(e.target.value)}
+                />
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  例如：`gemini-1.5-flash`、`gemini-1.5-pro` 或 `gemini-2.0-flash`。
                 </span>
               </div>
 
