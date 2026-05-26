@@ -17,7 +17,7 @@ const getGeminiApiKey = () => {
 };
 
 const getGeminiModel = () => {
-  let model = 'gemini-1.5-flash';
+  let model = 'gemini-2.5-flash';
   try {
     const stored = localStorage.getItem('supabase_settings');
     if (stored) {
