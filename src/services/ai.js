@@ -98,9 +98,13 @@ export const generateInitialAnalysis = async (screenshots, customPrompt) => {
       })
     });
 
+    if (!response.ok) {
+      const errorJson = await response.json().catch(() => ({}));
+      const errMsg = errorJson?.error?.message || `HTTP ${response.status} ${response.statusText}`;
+      throw new Error(errMsg);
+    }
+
     const result = await response.json();
-    if (result.error) throw new Error(result.error.message);
-    
     return result.candidates[0].content.parts[0].text;
   } catch (error) {
     console.error('Gemini API Error:', error);
@@ -201,8 +205,13 @@ export const chatWithAi = async (chatHistory, userMessage, attachments = []) => 
       })
     });
 
+    if (!response.ok) {
+      const errorJson = await response.json().catch(() => ({}));
+      const errMsg = errorJson?.error?.message || `HTTP ${response.status} ${response.statusText}`;
+      throw new Error(errMsg);
+    }
+
     const result = await response.json();
-    if (result.error) throw new Error(result.error.message);
 
     return {
       role: 'assistant',
@@ -247,8 +256,13 @@ export const searchExternalLinks = async (query) => {
       })
     });
 
+    if (!response.ok) {
+      const errorJson = await response.json().catch(() => ({}));
+      const errMsg = errorJson?.error?.message || `HTTP ${response.status} ${response.statusText}`;
+      throw new Error(errMsg);
+    }
+
     const result = await response.json();
-    if (result.error) throw new Error(result.error.message);
 
     const candidate = result.candidates?.[0];
     const groundingMetadata = candidate?.groundingMetadata;

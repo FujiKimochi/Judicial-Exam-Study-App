@@ -118,7 +118,8 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
       setCurrentStep(2);
       triggerToast('AI 解析已初步生成！', 'success');
     } catch (err) {
-      triggerToast('呼叫 Gemini API 失敗，請重試。', 'warning');
+      console.error(err);
+      triggerToast(`呼叫 Gemini 失敗: ${err.message || err}`, 'warning');
     } finally {
       setIsLoading(false);
     }
@@ -149,7 +150,8 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
         setInitialResponse(prev => `${prev}\n\n${aiReply.content}`);
       }
     } catch (e) {
-      triggerToast('AI 對話發生錯誤', 'warning');
+      console.error(e);
+      triggerToast(`AI 對話錯誤: ${e.message || e}`, 'warning');
     } finally {
       setIsLoading(false);
     }
