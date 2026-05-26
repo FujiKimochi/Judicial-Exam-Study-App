@@ -12,12 +12,15 @@ export default function App() {
   const [supabaseUrl, setSupabaseUrl] = useState('');
   const [supabaseKey, setSupabaseKey] = useState('');
   const [geminiApiKey, setGeminiApiKey] = useState('');
-  const [isConnected, setIsConnected] = useState(false);
+  const [dbConnected, setDbConnected] = useState(false);
+  const [aiConnected, setAiConnected] = useState(false);
 
   // Initialize DB on App Mount
   useEffect(() => {
     initDb();
-    setIsConnected(isSupabaseConfigured());
+    setDbConnected(isSupabaseConfigured());
+    
+    let hasGemini = !!import.meta.env.VITE_GEMINI_API_KEY;
     
     // Load stored settings if any
     try {
@@ -27,8 +30,13 @@ export default function App() {
         setSupabaseUrl(parsed.url || '');
         setSupabaseKey(parsed.anonKey || '');
         setGeminiApiKey(parsed.geminiApiKey || '');
+        if (parsed.geminiApiKey) {
+          hasGemini = true;
+        }
       }
     } catch(e) {}
+    
+    setAiConnected(hasGemini);
   }, []);
 
   // Toast trigger helper
@@ -80,6 +88,8 @@ export default function App() {
     }, 1000);
   };
 
+  const hasAnyConnection = dbConnected || aiConnected;
+
   return (
     <div className="app-container">
       {/* App Header */}
@@ -89,7 +99,11 @@ export default function App() {
           <div>
             <h1 className="brand-name">司法預備演習筆記</h1>
             <span className="brand-tagline">
-              Gemini AI 智能解析與論點管理 {isConnected ? '☁️ Cloud' : '💾 Local'}
+              Gemini AI 智能解析與論點管理 {
+                (dbConnected && aiConnected) ? '☁️ Cloud + 🤖 AI' :
+                dbConnected ? '☁️ Cloud DB' :
+                aiConnected ? '🤖 Gemini AI' : '💾 Local'
+              }
             </span>
           </div>
         </div>
@@ -111,12 +125,16 @@ export default function App() {
           </nav>
           
           <button 
-            className={`btn btn-secondary ${isConnected ? 'active-priority' : ''}`} 
+            className={`btn btn-secondary ${hasAnyConnection ? 'active-priority' : ''}`} 
             style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}
             onClick={() => setShowSettings(true)}
-            title="資料庫配置設定"
+            title="系統連線設定"
           >
-            ⚙️ {isConnected ? '已連線' : '未連線'}
+            ⚙️ {
+              (dbConnected && aiConnected) ? '雙線已連線' :
+              dbConnected ? '雲端 DB 已連線' :
+              aiConnected ? 'Gemini AI 已連線' : '未連線'
+            }
           </button>
         </div>
       </header>
