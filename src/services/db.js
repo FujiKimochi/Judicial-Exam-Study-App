@@ -144,12 +144,108 @@ export const getQuestions = async () => {
   return JSON.parse(localStorage.getItem(DB_KEYS.QUESTIONS));
 };
 
+// Helper to convert DataURL (Base64) to Blob
+const dataURLtoBlob = (dataurl) => {
+  const arr = dataurl.split(',');
+  const mime = arr[0].match(/:(.*?);/)[1];
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new Blob([u8arr], { type: mime });
+};
+
+// Upload Base64 image to Supabase Storage and get public URL
+const uploadImageToSupabase = async (supabase, bucketName, filePath, base64Data) => {
+  try {
+    const blob = dataURLtoBlob(base64Data);
+    const { data, error } = await supabase.storage
+      .from(bucketName)
+      .upload(filePath, blob, {
+        contentType: blob.type,
+        upsert: true
+      });
+    
+    if (error) throw error;
+    
+    const { data: publicUrlData } = supabase.storage
+      .from(bucketName)
+      .getPublicUrl(filePath);
+      
+    return publicUrlData.publicUrl;
+  } catch (e) {
+    console.error('Failed to upload image to Supabase Storage', e);
+    throw e;
+  }
+};
+
 export const saveQuestion = async (questionData) => {
   await initDb();
 
   if (isSupabaseConfigured()) {
     const supabase = getSupabaseClient();
-    const dbObj = mapJsToDbQuestion(questionData);
+    const bucketName = 'judicial-exam-assets';
+    const qFolderId = questionData.id || `q-${Date.now()}`;
+
+    // 1. Upload screenshots if they are Base64
+    const uploadedScreenshots = [];
+    for (let i = 0; i < (questionData.screenshots || []).length; i++) {
+      const src = questionData.screenshots[i];
+      if (src && src.startsWith('data:image/')) {
+        const filePath = `questions/${qFolderId}/screenshot-${i}-${Date.now()}.png`;
+        try {
+          const publicUrl = await uploadImageToSupabase(supabase, bucketName, filePath, src);
+          uploadedScreenshots.push(publicUrl);
+        } catch (err) {
+          console.error(err);
+          uploadedScreenshots.push(src); // Fallback to base64 if upload fails
+        }
+      } else {
+        uploadedScreenshots.push(src);
+      }
+    }
+
+    // 2. Upload chat attachments if they are Base64
+    const updatedChatHistory = [];
+    if (questionData.chatHistory) {
+      for (let i = 0; i < questionData.chatHistory.length; i++) {
+        const chat = questionData.chatHistory[i];
+        if (chat.attachments && chat.attachments.length > 0) {
+          const uploadedAttachments = [];
+          for (let j = 0; j < chat.attachments.length; j++) {
+            const att = chat.attachments[j];
+            if (att && att.startsWith('data:image/')) {
+              const filePath = `chats/${qFolderId}/chat-${i}-${j}-${Date.now()}.png`;
+              try {
+                const publicUrl = await uploadImageToSupabase(supabase, bucketName, filePath, att);
+                uploadedAttachments.push(publicUrl);
+              } catch (err) {
+                console.error(err);
+                uploadedAttachments.push(att);
+              }
+            } else {
+              uploadedAttachments.push(att);
+            }
+          }
+          updatedChatHistory.push({
+            ...chat,
+            attachments: uploadedAttachments
+          });
+        } else {
+          updatedChatHistory.push(chat);
+        }
+      }
+    }
+
+    const finalQuestionData = {
+      ...questionData,
+      screenshots: uploadedScreenshots,
+      chatHistory: updatedChatHistory
+    };
+
+    const dbObj = mapJsToDbQuestion(finalQuestionData);
 
     if (questionData.id) {
       // Update
