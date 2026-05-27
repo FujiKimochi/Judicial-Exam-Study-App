@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getPoints, getSubjects, saveQuestion } from '../services/db';
 import { generateInitialAnalysis, chatWithAi, searchExternalLinks } from '../services/ai';
+import { renderMarkdown } from './Dashboard';
 
 const getShortPointName = (name) => {
   if (!name) return '';
@@ -22,6 +23,12 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
   const [codebookPhotos, setCodebookPhotos] = useState([]);
   const [referenceLinks, setReferenceLinks] = useState([]);
   const [isSearchingLinks, setIsSearchingLinks] = useState(false);
+
+  // Highlighter & Edit States
+  const [highlighterMode, setHighlighterMode] = useState(true);
+  const [selectionInfo, setSelectionInfo] = useState(null);
+  const [editingIdx, setEditingIdx] = useState(-1);
+  const [editingText, setEditingText] = useState('');
 
   // Step 3 State
   const [selectedPointId, setSelectedPointId] = useState(initialPointId || '');
@@ -63,6 +70,83 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
       chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [chatHistory]);
+
+  // Handle text highlighting and manual edits in Step 2
+  const handleTextSelection = (idx, e) => {
+    if (!highlighterMode) return;
+    const selection = window.getSelection();
+    const text = selection.toString().trim();
+    if (!text || editingIdx !== -1) {
+      setSelectionInfo(null);
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+
+    setSelectionInfo({
+      text: text,
+      chatIdx: idx,
+      top: rect.top + window.scrollY - 36,
+      left: rect.left + window.scrollX + (rect.width / 2) - 40
+    });
+  };
+
+  const handleApplyHighlight = () => {
+    if (!selectionInfo) return;
+    const { text, chatIdx } = selectionInfo;
+    
+    setChatHistory(prev => {
+      const updated = [...prev];
+      const chat = updated[chatIdx];
+      
+      let newContent;
+      if (chat.content.includes(`==${text}==`)) {
+        newContent = chat.content.replace(`==${text}==`, text);
+      } else {
+        newContent = chat.content.replace(text, `==${text}==`);
+      }
+      
+      updated[chatIdx] = {
+        ...chat,
+        content: newContent
+      };
+
+      if (chatIdx === 0) {
+        setInitialResponse(newContent);
+      }
+      
+      return updated;
+    });
+
+    window.getSelection().removeAllRanges();
+    setSelectionInfo(null);
+  };
+
+  const handleToggleEdit = (idx) => {
+    if (editingIdx === idx) {
+      handleSaveEdit(idx);
+    } else {
+      setEditingIdx(idx);
+      setEditingText(chatHistory[idx].content);
+      setSelectionInfo(null);
+    }
+  };
+
+  const handleSaveEdit = (idx) => {
+    setChatHistory(prev => {
+      const updated = [...prev];
+      updated[idx] = {
+        ...updated[idx],
+        content: editingText
+      };
+      if (idx === 0) {
+        setInitialResponse(editingText);
+      }
+      return updated;
+    });
+    setEditingIdx(-1);
+  };
 
   // Handle Drag & Drop / File Uploads for Step 1
   const handleScreenshotUpload = (e) => {
@@ -348,19 +432,34 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <h2 style={{ fontSize: '20px' }}>Step 2: 詳細な対話校正とAIハルシネーション対策</h2>
                   
-                  {/* Google Search Link Retrieval */}
-                  <button 
-                    className="btn btn-secondary" 
-                    style={{ gap: '6px', fontSize: '13px', padding: '8px 16px' }}
-                    onClick={handleTriggerSearch}
-                    disabled={isSearchingLinks}
-                  >
-                    {isSearchingLinks ? '検索中...' : '🌐 弁護士の見解リンクを検索'}
-                  </button>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    {/* Highlighter Toggle */}
+                    <label className="priority-toggle-filter" style={{ background: highlighterMode ? 'rgba(0, 245, 225, 0.1)' : 'rgba(255,255,255,0.03)', borderColor: highlighterMode ? 'var(--accent-cyan)' : 'var(--border-light)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', userSelect: 'none' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={highlighterMode}
+                        onChange={(e) => setHighlighterMode(e.target.checked)}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      <span style={{ fontSize: '13px', color: highlighterMode ? 'white' : 'var(--text-secondary)' }}>
+                        🎨 蛍光筆モード {highlighterMode ? 'ON' : 'OFF'}
+                      </span>
+                    </label>
+
+                    {/* Google Search Link Retrieval */}
+                    <button 
+                      className="btn btn-secondary" 
+                      style={{ gap: '6px', fontSize: '13px', padding: '8px 16px' }}
+                      onClick={handleTriggerSearch}
+                      disabled={isSearchingLinks}
+                    >
+                      {isSearchingLinks ? '検索中...' : '🌐 弁護士の見解リンクを検索'}
+                    </button>
+                  </div>
                 </div>
 
                 <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                  ここでGeminiとさらに深く検討できます。ハルシネーション（AIの嘘）が心配な場合は、六法全書の写真や条文スクリーンショットを添付ファイルとして追加してください！
+                  ここでGeminiとさらに深く検討できます。ハルシネーション（AIの嘘）が心配な場合は、六法全書の写真や条文スクリーンショットを添付ファイルとして追加してください！{highlighterMode && ' (テキストを選択すると蛍光筆でハイライトできます)'}
                 </p>
 
                 {/* Reference Links Section (if any retrieved) */}
@@ -378,28 +477,101 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                 )}
 
                 {/* Chat Panel */}
-                <div className="studio-chat-wrapper">
+                <div className="studio-chat-wrapper" style={{ position: 'relative' }}>
+                  {/* Floating Highlighter Button */}
+                  {selectionInfo && (
+                    <button 
+                      className="floating-highlighter-btn animate-fade-in"
+                      style={{
+                        position: 'fixed',
+                        top: `${selectionInfo.top}px`,
+                        left: `${selectionInfo.left}px`,
+                        zIndex: 1000,
+                        background: 'var(--primary)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        padding: '6px 12px',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        fontWeight: 600
+                      }}
+                      onMouseDown={(e) => {
+                        e.preventDefault(); // Prevents selection from clearing
+                        handleApplyHighlight();
+                      }}
+                    >
+                      🎨 蛍光標記
+                    </button>
+                  )}
+
                   <div className="studio-chat-messages">
                     {chatHistory.map((chat, idx) => (
                       <div key={idx} className={`chat-bubble-wrapper ${chat.role === 'user' ? 'user' : 'assistant'}`}>
-                        <span className="chat-bubble-sender">
-                          {chat.role === 'user' ? '受験生' : 'Gemini AI'}
-                        </span>
-                        <div className="chat-bubble" style={{ whiteSpace: 'pre-wrap' }}>
-                          {chat.content}
-                          {chat.attachments && chat.attachments.length > 0 && (
-                            <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
-                              {chat.attachments.map((img, iIdx) => (
-                                <img 
-                                  key={iIdx} 
-                                  src={img} 
-                                  alt="附件" 
-                                  style={{ width: '45px', height: '45px', borderRadius: '4px', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.2)' }}
-                                />
-                              ))}
-                            </div>
+                        <span className="chat-bubble-sender" style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                          <span>{chat.role === 'user' ? '受験生' : 'Gemini AI'}</span>
+                          {chat.role !== 'user' && (
+                            <button 
+                              className="chat-bubble-edit-btn" 
+                              onClick={() => handleToggleEdit(idx)}
+                              style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '11px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+                            >
+                              {editingIdx === idx ? '💾 保存' : '✏️ 編集'}
+                            </button>
                           )}
-                        </div>
+                        </span>
+                        
+                        {editingIdx === idx ? (
+                          <div className="chat-bubble" style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-medium)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px', alignSelf: 'stretch', width: '100%' }}>
+                            <textarea
+                              className="chat-bubble-textarea"
+                              value={editingText}
+                              onChange={(e) => setEditingText(e.target.value)}
+                              style={{ width: '100%', minHeight: '150px', background: 'transparent', color: '#fff', border: 'none', outline: 'none', fontSize: '13px', fontFamily: 'inherit', resize: 'vertical', lineHeight: '1.6' }}
+                              placeholder="解答を編集します。==テキスト== で蛍光筆でハイライトできます。"
+                            />
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                              <button 
+                                className="btn btn-secondary" 
+                                style={{ padding: '3px 8px', fontSize: '11px' }}
+                                onClick={() => setEditingIdx(-1)}
+                              >
+                                キャンセル
+                              </button>
+                              <button 
+                                className="btn btn-primary" 
+                                style={{ padding: '3px 8px', fontSize: '11px' }}
+                                onClick={() => handleSaveEdit(idx)}
+                              >
+                                保存
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div 
+                            className="chat-bubble"
+                            style={{ cursor: highlighterMode ? 'text' : 'default' }}
+                            onMouseUp={(e) => handleTextSelection(idx, e)}
+                          >
+                            <div dangerouslySetInnerHTML={{ __html: renderMarkdown(chat.content) }} />
+                            {chat.attachments && chat.attachments.length > 0 && (
+                              <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                                {chat.attachments.map((img, iIdx) => (
+                                  <img 
+                                    key={iIdx} 
+                                    src={img} 
+                                    alt="附件" 
+                                    style={{ width: '45px', height: '45px', borderRadius: '4px', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.2)' }}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                     <div ref={chatEndRef} />

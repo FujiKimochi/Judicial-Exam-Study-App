@@ -1608,3 +1608,15 @@ a:hover {
   color: var(--accent-cyan);
   border: 1px solid rgba(0, 245, 225, 0.15);
 }
+
+/* Markdown Highlighter Style (==text==) */
+.md-highlight {
+  background: rgba(255, 223, 0, 0.35); /* Fluorescent gold/yellow highlight */
+  color: #ffffff;
+  padding: 1px 4px;
+  border-radius: 3px;
+  border-bottom: 1.5px solid #ffeb3b;
+  box-shadow: 0 0 8px rgba(255, 235, 59, 0.15);
+  font-weight: 500;
+}
+

@@ -21,6 +21,9 @@ export const renderMarkdown = (text) => {
   // Bold (**text**)
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 
+  // Highlighter (==text==)
+  html = html.replace(/==(.*?)==/g, '<mark class="md-highlight">$1</mark>');
+
   // Italics (*text*)
   html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
 
@@ -413,9 +416,11 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
                                   <span className="chat-bubble-sender">
                                     {chat.role === 'user' ? '受験生' : 'Gemini AI'}
                                   </span>
-                                  <div className="chat-bubble">
-                                    {chat.content}
-                                    {chat.attachments && chat.attachments.length > 0 && (
+                                  <div 
+                                    className="chat-bubble" 
+                                    dangerouslySetInnerHTML={{ __html: renderMarkdown(chat.content) }}
+                                  />
+                                  {chat.attachments && chat.attachments.length > 0 && (
                                       <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
                                         {chat.attachments.map((att, aIdx) => (
                                           <img 
@@ -428,7 +433,6 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
                                         ))}
                                       </div>
                                     )}
-                                  </div>
                                 </div>
                               ))}
                             </div>
