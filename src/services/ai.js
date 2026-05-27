@@ -71,7 +71,7 @@ export const generateInitialAnalysis = async (screenshots, customPrompt) => {
 
   // --- REAL GEMINI API CALL ---
   try {
-    const systemPrompt = "➀　日本法律や判例の前提で、まず本問の論点を一言で説明してください。それに、条文や判例の趣旨を踏まえて具体例を挙げながら分かりやすく解説してください。";
+    const systemPrompt = "日本法律や判例の前提で、まず本問の論点を一言で説明してください。それに、条文や判例の趣旨を踏まえて具体例を挙げながら分かりやすく解説してください。";
     const promptText = customPrompt 
       ? `${systemPrompt}\n追加要望：${customPrompt}` 
       : systemPrompt;

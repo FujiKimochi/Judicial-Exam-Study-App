@@ -77,7 +77,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
       reader.readAsDataURL(file);
     });
     
-    triggerToast(`問題のスクリーンショットを ${files.length} 枚アップロードしました`, 'success');
+    triggerToast(`Uploaded ${files.length} problem screenshots.`, 'success');
   };
 
   const removeScreenshot = (idx) => {
@@ -96,7 +96,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
       };
       reader.readAsDataURL(file);
     });
-    triggerToast(`法帖のエビデンス画像を ${files.length} 枚添付しました`, 'success');
+    triggerToast(`Attached ${files.length} reference law screenshots.`, 'success');
   };
 
   const removeCodebookPhoto = (idx) => {
@@ -106,7 +106,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
   // Step 1 Submit: Generate initial analysis
   const handleGenerateAnalysis = async () => {
     if (screenshots.length === 0) {
-      triggerToast('問題のスクリーンショットを少なくとも1枚アップロードしてください', 'warning');
+      triggerToast('Please upload at least one problem screenshot.', 'warning');
       return;
     }
 
@@ -121,10 +121,10 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
       ]);
       
       setCurrentStep(2);
-      triggerToast('AI解説の初期生成が完了しました！', 'success');
+      triggerToast('AI explanation generated!', 'success');
     } catch (err) {
       console.error(err);
-      triggerToast(`Geminiの呼び出しに失敗しました: ${err.message || err}`, 'warning');
+      triggerToast(`Gemini failed: ${err.message || err}`, 'warning');
     } finally {
       setIsLoading(false);
     }
@@ -156,7 +156,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
       }
     } catch (e) {
       console.error(e);
-      triggerToast(`AI対話エラー: ${e.message || e}`, 'warning');
+      triggerToast(`AI chat error: ${e.message || e}`, 'warning');
     } finally {
       setIsLoading(false);
     }
@@ -165,7 +165,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
   // Step 2 Actions: Google Web Search
   const handleTriggerSearch = async () => {
     setIsSearchingLinks(true);
-    const activePointName = allPoints.find(p => p.id === selectedPointId)?.name || '法律條文與判例';
+    const activePointName = allPoints.find(p => p.id === selectedPointId)?.name || 'Legal Provisions and Precedents';
     try {
       const results = await searchExternalLinks(activePointName);
       setReferenceLinks(prev => {
@@ -174,9 +174,9 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
         const uniqueNew = results.filter(r => !existingUrls.includes(r.url));
         return [...prev, ...uniqueNew];
       });
-      triggerToast('外部の専門的見解の検索に成功しました', 'success');
+      triggerToast('Expert legal links search completed.', 'success');
     } catch (e) {
-      triggerToast('ウェブ検索に失敗しました', 'warning');
+      triggerToast('Web search failed.', 'warning');
     } finally {
       setIsSearchingLinks(false);
     }
@@ -200,7 +200,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
   // Step 3 Final: Save Question to DB
   const handleSaveQuestion = async () => {
     if (!selectedPointId) {
-      triggerToast('保存先の論点タグを選択してください', 'warning');
+      triggerToast('Please select a point tag to save.', 'warning');
       return;
     }
 
@@ -217,12 +217,12 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
     setIsLoading(true);
     try {
       await saveQuestion(questionData);
-      triggerToast('ノートが正常に保存されました！', 'success');
+      triggerToast('Note saved successfully!', 'success');
       onSaveSuccess();
     } catch (e) {
       console.error('Save question failed:', e);
       const errDetail = (e && e.message) ? e.message : (typeof e === 'string' ? e : JSON.stringify(e));
-      triggerToast('保存に失敗しました: ' + errDetail, 'warning');
+      triggerToast('Save failed: ' + errDetail, 'warning');
     } finally {
       setIsLoading(false);
     }
@@ -232,13 +232,13 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
     <div className="studio-container animate-fade-in">
       {/* Sidebar: Step Indicator */}
       <aside className="glass-panel studio-steps-sidebar">
-        <h3 style={{ fontSize: '15px', color: 'var(--text-primary)', marginBottom: '8px' }}>ワークスペースナビ</h3>
+        <h3 style={{ fontSize: '15px', color: 'var(--text-primary)', marginBottom: '8px' }}>Workspace Nav</h3>
         
         <div className={`step-indicator ${currentStep === 1 ? 'active' : ''} ${currentStep > 1 ? 'completed' : ''}`}>
           <div className="step-number">1</div>
           <div>
             <p style={{ margin: 0, fontWeight: 600 }}>Step 1</p>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>アップロードと初期生成</span>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Upload & Generate</span>
           </div>
         </div>
 
@@ -246,7 +246,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
           <div className="step-number">2</div>
           <div>
             <p style={{ margin: 0, fontWeight: 600 }}>Step 2</p>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>対話校正とハルシネーション対策</span>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Chat & Verify</span>
           </div>
         </div>
 
@@ -254,12 +254,12 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
           <div className="step-number">3</div>
           <div>
             <p style={{ margin: 0, fontWeight: 600 }}>Step 3</p>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>確認と分類保存</span>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Categorize & Save</span>
           </div>
         </div>
 
         <div style={{ marginTop: 'auto', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', fontSize: '11px', color: 'var(--text-muted)', lineHeight: '1.4' }}>
-          💡 <strong>ハルシネーション対策のコツ</strong>：ステップ2で六法全書の写真をアップロードすると、Geminiが画像テキストを読み取り、条文内容を100%正確に校正します！
+          💡 <strong>Anti-Hallucination Tip</strong>: In Step 2, upload photos of reference laws. Gemini will cross-examine them to ensure 100% factual accuracy.
         </div>
       </aside>
 
@@ -269,8 +269,8 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
         {isLoading ? (
           <div className="loading-overlay">
             <div className="spinner"></div>
-            <h3 style={{ fontFamily: 'var(--font-title)' }}>Gemini AIが思考中...</h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>条文と判例の趣旨を組み合わせ、法律上の要件を分析しています...</p>
+            <h3 style={{ fontFamily: 'var(--font-title)' }}>Gemini AI is thinking...</h3>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Analyzing code requirements and precedents...</p>
           </div>
         ) : (
           <>
@@ -278,7 +278,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
             {currentStep === 1 && (
               <div className="studio-step-content animate-fade-in">
                 <h2 style={{ fontSize: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span>Step 1: 問題スクリーンショットのアップロードと初期生成</span>
+                  <span>Step 1: Upload Screenshots & Generate Explanation</span>
                 </h2>
 
                 {/* Drop Zone */}
@@ -287,8 +287,8 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                   onClick={() => document.getElementById('screenshot-upload').click()}
                 >
                   <div className="drop-zone-icon">📁</div>
-                  <p className="drop-zone-text">複数の問題スクリーンショットをここにドラッグ＆ドロップするか、<strong>クリックしてファイルを選択</strong></p>
-                  <p className="drop-zone-subtext">JPEG、PNGなどの画像形式に対応（複数画像の同時アップロード対応）</p>
+                  <p className="drop-zone-text">Drag & drop multiple screenshots here, or <strong>click to select files</strong></p>
+                  <p className="drop-zone-subtext">Supports JPEG, PNG (multiple files supported)</p>
                   <input 
                     type="file" 
                     id="screenshot-upload" 
@@ -302,11 +302,11 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                 {/* Upload Previews */}
                 {screenshots.length > 0 && (
                   <div className="form-group">
-                    <label className="form-label">アップロード済みのスクリーンショット ({screenshots.length} 枚)</label>
+                    <label className="form-label">Uploaded Screenshots ({screenshots.length})</label>
                     <div className="image-previews-grid">
                       {screenshots.map((src, idx) => (
                         <div key={idx} className="img-preview-card">
-                          <img src={src} alt="預覽" className="img-preview-thumbnail" />
+                          <img src={src} alt="Screenshot" className="img-preview-thumbnail" />
                           <button className="remove-img-btn" onClick={() => removeScreenshot(idx)}>✕</button>
                         </div>
                       ))}
@@ -316,17 +316,17 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
 
                 {/* Prompt Parameters */}
                 <div className="form-group" style={{ marginTop: '20px' }}>
-                  <label className="form-label">🤖 AIへの指示（プリセット）</label>
+                  <label className="form-label">🤖 AI Instructions (Preset)</label>
                   <div className="form-input-static" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
-                    ➀　日本法律や判例の前提で、まず本問の論点を一言で説明してください。それに、条文や判例の趣旨を踏まえて具体例を挙げながら分かりやすく解説してください。
+                    日本法律や判例の前提で、まず本問の論点を一言で説明してください。それに、条文や判例の趣旨を踏まえて具体例を挙げながら分かりやすく解説してください。
                   </div>
                 </div>
 
                 <div className="form-group" style={{ marginTop: '20px' }}>
-                  <label className="form-label">✍️ 追加プロンプト (自由入力)</label>
+                  <label className="form-label">✍️ Additional Instructions (Optional)</label>
                   <textarea 
                     className="form-textarea"
-                    placeholder="例：この解説に加えて、AとBの構成要件の違いを表形式で比較してください..."
+                    placeholder="e.g. Compare the elements of liability/crime in a table format..."
                     value={customPrompt}
                     onChange={(e) => setCustomPrompt(e.target.value)}
                   />
@@ -336,7 +336,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                 <div className="studio-actions">
                   <div></div> {/* Empty for layout align */}
                   <button className="btn btn-primary" onClick={handleGenerateAnalysis}>
-                    Geminiで解説を生成 →
+                    Generate Explanation →
                   </button>
                 </div>
               </div>
@@ -346,7 +346,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
             {currentStep === 2 && (
               <div className="studio-step-content animate-fade-in">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h2 style={{ fontSize: '20px' }}>Step 2: 詳細な対話校正とAIハルシネーション対策</h2>
+                  <h2 style={{ fontSize: '20px' }}>Step 2: Follow-up Chat & Reference Verification</h2>
                   
                   {/* Google Search Link Retrieval */}
                   <button 
@@ -355,18 +355,18 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                     onClick={handleTriggerSearch}
                     disabled={isSearchingLinks}
                   >
-                    {isSearchingLinks ? '検索中...' : '🌐 弁護士の見解リンクを検索'}
+                    {isSearchingLinks ? 'Searching...' : '🌐 Search Expert Legal Links'}
                   </button>
                 </div>
 
                 <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                  ここでGeminiとさらに深く検討できます。ハルシネーション（AIの嘘）が心配な場合は、六法全書の写真や条文スクリーンショットを添付ファイルとして追加してください！
+                  Feel free to ask follow-up questions to refine the analysis. You can attach reference law photos to prevent AI hallucination.
                 </p>
 
                 {/* Reference Links Section (if any retrieved) */}
                 {referenceLinks.length > 0 && (
                   <div className="search-results-box animate-fade-in">
-                    <span className="section-label" style={{ color: 'var(--accent-cyan)' }}>検索された外部参考資料：</span>
+                    <span className="section-label" style={{ color: 'var(--accent-cyan)' }}>Retrieved external references:</span>
                     <div className="links-grid" style={{ marginTop: '8px' }}>
                       {referenceLinks.map((link, idx) => (
                         <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" className="external-link-pill">
@@ -383,7 +383,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                     {chatHistory.map((chat, idx) => (
                       <div key={idx} className={`chat-bubble-wrapper ${chat.role === 'user' ? 'user' : 'assistant'}`}>
                         <span className="chat-bubble-sender">
-                          {chat.role === 'user' ? '受験生' : 'Gemini AI'}
+                          {chat.role === 'user' ? 'User' : 'Gemini AI'}
                         </span>
                         <div className="chat-bubble" style={{ whiteSpace: 'pre-wrap' }}>
                           {chat.content}
@@ -393,7 +393,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                                 <img 
                                   key={iIdx} 
                                   src={img} 
-                                  alt="附件" 
+                                  alt="Attachment" 
                                   style={{ width: '45px', height: '45px', borderRadius: '4px', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.2)' }}
                                 />
                               ))}
@@ -408,11 +408,11 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                   {/* Attachment indicator */}
                   {codebookPhotos.length > 0 && (
                     <div className="attachment-indicator-bar animate-fade-in">
-                      <span>📎 メッセージと同時に送信する六法全書写真 ({codebookPhotos.length} 枚)：</span>
+                      <span>📎 Reference law photos to attach ({codebookPhotos.length}):</span>
                       <div style={{ display: 'flex', gap: '6px' }}>
                         {codebookPhotos.map((src, idx) => (
                           <div key={idx} style={{ position: 'relative' }}>
-                            <img src={src} alt="六法全書" style={{ width: '24px', height: '24px', borderRadius: '2px', objectFit: 'cover' }} />
+                            <img src={src} alt="Reference" style={{ width: '24px', height: '24px', borderRadius: '2px', objectFit: 'cover' }} />
                             <button 
                               style={{ position: 'absolute', top: -3, right: -3, background: 'red', color: 'white', border: 'none', borderRadius: '50%', width: '10px', height: '10px', fontSize: '6px', display: 'flex', alignItems: 'center', justify: 'center', cursor: 'pointer' }}
                               onClick={() => removeCodebookPhoto(idx)}
@@ -430,7 +430,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                     {/* Add attachment button */}
                     <button 
                       className="chat-action-btn"
-                      title="上傳法典佐證相片 (防幻覺)"
+                      title="Upload reference law photos"
                       onClick={() => document.getElementById('codebook-upload').click()}
                     >
                       📎
@@ -447,7 +447,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                     <input 
                       type="text" 
                       className="chat-input"
-                      placeholder="質問を入力してください... 六法全書の写真を添付してAIの誤りを正せます"
+                      placeholder="Type a follow-up question... upload law photos to correct the AI."
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
                       onKeyDown={(e) => {
@@ -468,10 +468,10 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                 {/* Navigation Actions */}
                 <div className="studio-actions">
                   <button className="btn btn-secondary" onClick={() => setCurrentStep(1)}>
-                    ← 戻る (問題の編集)
+                    ← Back (Edit Problem)
                   </button>
                   <button className="btn btn-primary" onClick={() => setCurrentStep(3)}>
-                    次へ (分類して保存) →
+                    Next (Categorize & Save) →
                   </button>
                 </div>
               </div>
@@ -480,18 +480,18 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
             {/* STEP 3: CATEGORIZATION AND CONFIRM SAVE */}
             {currentStep === 3 && (
               <div className="studio-step-content animate-fade-in" style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
-                <h2 style={{ fontSize: '20px', marginBottom: '8px' }}>Step 3: 論点の選択と保存確認</h2>
+                <h2 style={{ fontSize: '20px', marginBottom: '8px' }}>Step 3: Categorize & Save</h2>
                 <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                  この問題に対応する論点を選択してください。選択した論点にバインドされ、ダッシュボードに表示されます。
+                  Please select a point to categorize this study note. It will show up on your dashboard.
                 </p>
 
                 {/* Point Selection Suggest Search */}
                 <div className="form-group suggest-search-container" style={{ marginTop: '20px' }}>
-                  <label className="form-label">🔍 保存先論点タグの選択 (必須)</label>
+                  <label className="form-label">🔍 Select Point Tag (Required)</label>
                   <input 
                     type="text" 
                     className="search-input"
-                    placeholder="論点キーワードまたは科目名で検索（例：無権代理）..."
+                    placeholder="Search key terms or subjects (e.g. agency, tort)..."
                     value={pointSearchQuery}
                     onChange={(e) => {
                       setPointSearchQuery(e.target.value);
@@ -517,14 +517,14 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                         })
                       ) : (
                         <div className="suggest-item" style={{ color: 'var(--text-muted)' }}>
-                          一致する論点タグが見つかりません
+                          No matching points found
                         </div>
                       )}
                     </div>
                   )}
                   {selectedPointId && (
                     <div style={{ fontSize: '12px', color: 'var(--accent-cyan)', marginTop: '4px' }}>
-                      ✓ 保存先に選定されました：<strong>{getShortPointName(allPoints.find(p => p.id === selectedPointId)?.name)}</strong>
+                      ✓ Categorized under: <strong>{getShortPointName(allPoints.find(p => p.id === selectedPointId)?.name)}</strong>
                     </div>
                   )}
                 </div>
@@ -542,9 +542,9 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                     onClick={(e) => e.stopPropagation()} // Avoid double toggling
                   />
                   <div>
-                    <span className="priority-label-bold">⭐「優先復習」の重要問題としてマークする</span>
+                    <span className="priority-label-bold">⭐ Mark as High Priority for Review</span>
                     <p className="priority-subtext" style={{ margin: 0 }}>
-                      チェックを入れると、この問題がダッシュボード上で黄色のネオン枠で強調表示され、試験直前のクイックフィルターとラストスパートに役立ちます。
+                      Highlights this note on the dashboard for quick access and last-minute cramming.
                     </p>
                   </div>
                 </div>
@@ -552,14 +552,14 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                 {/* Navigation Actions */}
                 <div className="studio-actions" style={{ marginTop: '40px' }}>
                   <button className="btn btn-secondary" onClick={() => setCurrentStep(2)}>
-                    ← 戻る (対話校正)
+                    ← Back (Chat)
                   </button>
                   <button 
                     className="btn btn-accent" 
                     onClick={handleSaveQuestion}
                     disabled={!selectedPointId}
                   >
-                    💾 保存してダッシュボードに統合
+                    💾 Save & Add to Dashboard
                   </button>
                 </div>
               </div>
