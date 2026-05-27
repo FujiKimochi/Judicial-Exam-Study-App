@@ -183,30 +183,81 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
     setChatHistory(prev => {
       const updated = [...prev];
       const chat = updated[chatIdx];
+      const markdown = chat.content;
+
+      // 1. Build character mapping from plain text to raw markdown
+      const map = [];
+      let plainIndex = 0;
+      let i = 0;
       
-      // Escape special characters in text for regex
-      const escapedText = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      while (i < markdown.length) {
+        // Skip bold markers
+        if (markdown.startsWith('**', i) || markdown.startsWith('__', i)) {
+          i += 2;
+          continue;
+        }
+        // Skip highlight markers
+        let highlightMatch = markdown.slice(i).match(/^==(pink:|yellow:|green:|blue:|purple:)?/i);
+        if (highlightMatch && highlightMatch[0]) {
+          i += highlightMatch[0].length;
+          continue;
+        }
+        if (markdown.startsWith('==', i)) {
+          i += 2;
+          continue;
+        }
+        // Skip italic and code markers
+        if (markdown[i] === '*' || markdown[i] === '_' || markdown[i] === '`') {
+          i += 1;
+          continue;
+        }
+        
+        map[plainIndex] = i;
+        plainIndex++;
+        i++;
+      }
+
+      // 2. Reconstruct plain text and find the selected text index
+      const plainText = map.map(idx => markdown[idx]).join('');
+      const startPos = plainText.indexOf(text);
+
+      if (startPos === -1) {
+        console.warn('Selected text not found in plain text:', text);
+        return prev; // No match found
+      }
+
+      const endPos = startPos + text.length - 1;
+      const startMdIdx = map[startPos];
+      const endMdIdx = map[endPos];
+
+      const markdownBefore = markdown.substring(0, startMdIdx);
+      const markdownAfter = markdown.substring(endMdIdx + 1);
       
-      // Pattern to match any existing highlight: ==text== or ==color:text==
-      const regexPattern = new RegExp(`==(?:pink:|yellow:|green:|blue:|purple:)?${escapedText}==`, 'gi');
+      const highlightStartRegex = /==(?:pink:|yellow:|green:|blue:|purple:)?$/i;
+      const highlightEndRegex = /^==/;
       
+      const hasBefore = highlightStartRegex.test(markdownBefore);
+      const hasAfter = highlightEndRegex.test(markdownAfter);
+      const isAlreadyHighlighted = hasBefore && hasAfter;
+
       let newContent;
-      const isAlreadyHighlighted = chat.content.match(regexPattern) !== null;
-      
       if (color === 'remove') {
         if (isAlreadyHighlighted) {
-          newContent = chat.content.replace(regexPattern, text);
+          const newBefore = markdownBefore.replace(highlightStartRegex, '');
+          const newAfter = markdownAfter.replace(highlightEndRegex, '');
+          newContent = newBefore + markdown.substring(startMdIdx, endMdIdx + 1) + newAfter;
         } else {
-          newContent = chat.content;
+          newContent = markdown;
         }
       } else {
         if (isAlreadyHighlighted) {
-          newContent = chat.content.replace(regexPattern, `==${color}:${text}==`);
+          const newBefore = markdownBefore.replace(highlightStartRegex, `==${color}:`);
+          newContent = newBefore + markdown.substring(startMdIdx, endMdIdx + 1) + markdownAfter;
         } else {
-          newContent = chat.content.replace(text, `==${color}:${text}==`);
+          newContent = markdownBefore + `==${color}:` + markdown.substring(startMdIdx, endMdIdx + 1) + `==` + markdownAfter;
         }
       }
-      
+
       updated[chatIdx] = {
         ...chat,
         content: newContent
