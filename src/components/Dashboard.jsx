@@ -21,8 +21,13 @@ export const renderMarkdown = (text) => {
   // Bold (**text**)
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 
-  // Highlighter (==text==)
-  html = html.replace(/==(.*?)==/g, '<mark class="md-highlight">$1</mark>');
+  // Highlighter (==color:text== or ==text==)
+  html = html.replace(/==pink:(.*?)==/gi, '<mark class="md-highlight md-highlight-pink">$1</mark>');
+  html = html.replace(/==yellow:(.*?)==/gi, '<mark class="md-highlight md-highlight-yellow">$1</mark>');
+  html = html.replace(/==green:(.*?)==/gi, '<mark class="md-highlight md-highlight-green">$1</mark>');
+  html = html.replace(/==blue:(.*?)==/gi, '<mark class="md-highlight md-highlight-blue">$1</mark>');
+  html = html.replace(/==purple:(.*?)==/gi, '<mark class="md-highlight md-highlight-purple">$1</mark>');
+  html = html.replace(/==(.*?)==/g, '<mark class="md-highlight md-highlight-yellow">$1</mark>');
 
   // Italics (*text*)
   html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');

@@ -64,11 +64,15 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
     loadPointsAndSubjects();
   }, [initialPointId]);
 
-  // Scroll chat to bottom
+  // Scroll chat to bottom only when messages are added
+  const prevHistoryLength = useRef(0);
   useEffect(() => {
-    if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (chatHistory.length > prevHistoryLength.current) {
+      if (chatEndRef.current) {
+        chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
     }
+    prevHistoryLength.current = chatHistory.length;
   }, [chatHistory]);
 
   // Handle text highlighting and manual edits in Step 2
@@ -92,7 +96,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
     });
   };
 
-  const handleApplyHighlight = () => {
+  const handleApplyHighlight = (color) => {
     if (!selectionInfo) return;
     const { text, chatIdx } = selectionInfo;
     
@@ -100,11 +104,27 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
       const updated = [...prev];
       const chat = updated[chatIdx];
       
+      // Escape special characters in text for regex
+      const escapedText = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      
+      // Pattern to match any existing highlight: ==text== or ==color:text==
+      const regexPattern = new RegExp(`==(?:pink:|yellow:|green:|blue:|purple:)?${escapedText}==`, 'gi');
+      
       let newContent;
-      if (chat.content.includes(`==${text}==`)) {
-        newContent = chat.content.replace(`==${text}==`, text);
+      const isAlreadyHighlighted = regexPattern.test(chat.content);
+      
+      if (color === 'remove') {
+        if (isAlreadyHighlighted) {
+          newContent = chat.content.replace(regexPattern, text);
+        } else {
+          newContent = chat.content;
+        }
       } else {
-        newContent = chat.content.replace(text, `==${text}==`);
+        if (isAlreadyHighlighted) {
+          newContent = chat.content.replace(regexPattern, `==${color}:${text}==`);
+        } else {
+          newContent = chat.content.replace(text, `==${color}:${text}==`);
+        }
       }
       
       updated[chatIdx] = {
@@ -478,35 +498,83 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
 
                 {/* Chat Panel */}
                 <div className="studio-chat-wrapper" style={{ position: 'relative' }}>
-                  {/* Floating Highlighter Button */}
+                  {/* Floating Highlighter Toolbar */}
                   {selectionInfo && (
-                    <button 
-                      className="floating-highlighter-btn animate-fade-in"
+                    <div 
+                      className="floating-highlighter-toolbar animate-fade-in"
                       style={{
                         position: 'fixed',
                         top: `${selectionInfo.top}px`,
                         left: `${selectionInfo.left}px`,
-                        zIndex: 1000,
-                        background: 'var(--primary)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        padding: '6px 12px',
-                        fontSize: '12px',
-                        cursor: 'pointer',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                        zIndex: 3000,
+                        background: 'rgba(30, 30, 38, 0.95)',
+                        backdropFilter: 'blur(8px)',
+                        border: '1px solid var(--border-medium)',
+                        borderRadius: '24px',
+                        padding: '6px 10px',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '4px',
-                        fontWeight: 600
-                      }}
-                      onMouseDown={(e) => {
-                        e.preventDefault(); // Prevents selection from clearing
-                        handleApplyHighlight();
+                        gap: '8px',
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)',
                       }}
                     >
-                      🎨 蛍光標記
-                    </button>
+                      {[
+                        { name: 'pink', label: 'ピンク', color: '#ff4081' },
+                        { name: 'yellow', label: 'イエロー', color: '#ffeb3b' },
+                        { name: 'green', label: 'グリーン', color: '#00e676' },
+                        { name: 'blue', label: 'ブルー', color: '#00b0ff' },
+                        { name: 'purple', label: 'パープル', color: '#d500f9' }
+                      ].map((item) => (
+                        <button
+                          key={item.name}
+                          className="highlighter-color-dot"
+                          title={item.label}
+                          style={{
+                            width: '20px',
+                            height: '20px',
+                            borderRadius: '50%',
+                            background: item.color,
+                            border: '1px solid rgba(255,255,255,0.3)',
+                            cursor: 'pointer',
+                            padding: 0,
+                            boxShadow: '0 0 6px rgba(0,0,0,0.3)',
+                            transition: 'transform 0.15s ease'
+                          }}
+                          onMouseEnter={(e) => e.target.style.transform = 'scale(1.2)'}
+                          onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            handleApplyHighlight(item.name);
+                          }}
+                        />
+                      ))}
+                      
+                      <div style={{ width: '1px', height: '16px', background: 'var(--border-light)' }}></div>
+                      
+                      <button
+                        title="消しゴム"
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#ff4d4d',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          padding: '2px 4px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'transform 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => e.target.style.transform = 'scale(1.2)'}
+                        onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          handleApplyHighlight('remove');
+                        }}
+                      >
+                        🧹
+                      </button>
+                    </div>
                   )}
 
                   <div className="studio-chat-messages">

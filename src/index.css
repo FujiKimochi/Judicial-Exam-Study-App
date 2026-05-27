@@ -1611,12 +1611,40 @@ a:hover {
 
 /* Markdown Highlighter Style (==text==) */
 .md-highlight {
-  background: rgba(255, 223, 0, 0.35); /* Fluorescent gold/yellow highlight */
   color: #ffffff;
   padding: 1px 4px;
   border-radius: 3px;
-  border-bottom: 1.5px solid #ffeb3b;
-  box-shadow: 0 0 8px rgba(255, 235, 59, 0.15);
   font-weight: 500;
+  display: inline;
+}
+
+.md-highlight-pink {
+  background: rgba(255, 64, 129, 0.35); /* Fluorescent pink */
+  border-bottom: 1.5px solid #ff4081;
+  box-shadow: 0 0 8px rgba(255, 64, 129, 0.2);
+}
+
+.md-highlight-yellow {
+  background: rgba(255, 223, 0, 0.35); /* Fluorescent yellow */
+  border-bottom: 1.5px solid #ffeb3b;
+  box-shadow: 0 0 8px rgba(255, 235, 59, 0.2);
+}
+
+.md-highlight-green {
+  background: rgba(0, 230, 118, 0.35); /* Fluorescent green */
+  border-bottom: 1.5px solid #00e676;
+  box-shadow: 0 0 8px rgba(0, 230, 118, 0.2);
+}
+
+.md-highlight-blue {
+  background: rgba(0, 176, 255, 0.35); /* Fluorescent blue */
+  border-bottom: 1.5px solid #00b0ff;
+  box-shadow: 0 0 8px rgba(0, 176, 255, 0.2);
+}
+
+.md-highlight-purple {
+  background: rgba(213, 0, 249, 0.35); /* Fluorescent purple */
+  border-bottom: 1.5px solid #d500f9;
+  box-shadow: 0 0 8px rgba(213, 0, 249, 0.2);
 }
 
