@@ -122,7 +122,7 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
       }
     } catch (e) {
       console.error('Failed to load data', e);
-      triggerToast('Failed to load data. Please check configuration settings.', 'warning');
+      triggerToast('データベースの読み込みに失敗しました。設定を確認してください', 'warning');
     }
   };
 
@@ -155,22 +155,22 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
     try {
       const updated = await togglePriority(id);
       setQuestions(updated);
-      triggerToast('Priority review status updated.', 'success');
+      triggerToast('優先復習ステータスが変更されました', 'warning');
     } catch (e) {
-      triggerToast('Failed to update priority status.', 'warning');
+      triggerToast('ステータスの変更に失敗しました', 'warning');
     }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this study note?')) {
+    if (window.confirm('この復習ノートを削除してもよろしいですか？')) {
       try {
         const updated = await deleteQuestion(id);
         setQuestions(updated);
         const stt = await getPointStats();
         setStats(stt);
-        triggerToast('Study note deleted.', 'success');
+        triggerToast('ノートが削除されました', 'success');
       } catch (e) {
-        triggerToast('Failed to delete study note.', 'warning');
+        triggerToast('削除に失敗しました', 'warning');
       }
     }
   };
@@ -210,13 +210,13 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
       {/* Sidebar: Tier 2 (Points list) */}
       <aside className="glass-panel points-sidebar">
         <div className="sidebar-title">
-          <span>Points List</span>
+          <span>論点リスト</span>
           <button 
             className="btn btn-secondary" 
             style={{ padding: '4px 10px', fontSize: '12px' }}
             onClick={() => onGoToStudio(selectedPointId)}
           >
-            + Add Question
+            + 問題追加
           </button>
         </div>
         
@@ -224,7 +224,7 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
           <input 
             type="text" 
             className="search-input" 
-            placeholder="Search points..." 
+            placeholder="この科目の論点を検索..." 
             value={pointSearchQuery}
             onChange={(e) => setPointSearchQuery(e.target.value)}
           />
@@ -250,7 +250,7 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
             ))
           ) : (
             <div className="empty-state" style={{ padding: '20px 10px', fontSize: '12px' }}>
-              No matching points found
+              該当する論点が見つかりません
             </div>
           )}
         </div>
@@ -272,7 +272,7 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
                 }}
               >
                 <span className="subject-tab-title">{s.name}</span>
-                <span className="subject-tab-count">{count} Saved</span>
+                <span className="subject-tab-count">{count} 問保存済</span>
               </button>
             );
           })}
@@ -296,7 +296,7 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
                     checked={priorityFilter}
                     onChange={(e) => setPriorityFilter(e.target.checked)}
                   />
-                  <span>Show priority only</span>
+                  <span>優先復習のみ表示</span>
                 </label>
               </div>
 
@@ -310,19 +310,19 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
                       {/* Card Actions bar */}
                       <div className="question-card-header">
                         <span className="question-date">
-                          Saved: {new Date(q.createdAt).toLocaleString('en-US', { hour12: false })}
+                          保存日時：{new Date(q.createdAt).toLocaleString('ja-JP', { hour12: false })}
                         </span>
                         <div className="question-actions">
                           <button 
                             className={`card-btn ${q.isPriority ? 'active-priority' : ''}`}
-                            title={q.isPriority ? "Remove from priority" : "Mark as priority"}
+                            title={q.isPriority ? "優先復習を解除" : "優先復習に設定"}
                             onClick={() => handleTogglePriority(q.id)}
                           >
                             ★
                           </button>
                           <button 
                             className="card-btn delete-btn"
-                            title="Delete this note"
+                            title="このノートを削除"
                             onClick={() => handleDelete(q.id)}
                           >
                             🗑️
@@ -334,22 +334,22 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
                       <div className="question-card-body">
                         {/* Left: Screenshots */}
                         <div className="question-media">
-                          <span className="section-label">Original Screenshot</span>
+                          <span className="section-label">元の問題スクリーンショット</span>
                           {q.screenshots && q.screenshots.map((src, index) => (
                             <div 
                               key={index} 
                               className="question-img-wrapper"
                               onClick={() => setLightboxImg(src)}
                             >
-                              <img src={src} alt="Screenshot" className="question-img" />
-                              <span className="question-img-label">Image {index + 1} (Click to zoom)</span>
+                              <img src={src} alt="題目截圖" className="question-img" />
+                              <span className="question-img-label">画像 {index + 1} (クリックで拡大)</span>
                             </div>
                           ))}
                         </div>
 
                         {/* Right: AI Analysis */}
                         <div className="question-details">
-                          <span className="section-label">Gemini Explanation</span>
+                          <span className="section-label">Gemini 校正後の法律解説</span>
                           <div 
                             className="analysis-md"
                             dangerouslySetInnerHTML={{ __html: renderMarkdown(q.aiResponse) }}
@@ -358,7 +358,7 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
                           {/* External Lawyer Links */}
                           {q.referenceLinks && q.referenceLinks.length > 0 && (
                             <div className="external-links-section">
-                              <span className="section-label">External References</span>
+                              <span className="section-label">外部の専門的見解・参考リンク</span>
                               <div className="links-grid">
                                 {q.referenceLinks.map((link, lidx) => (
                                   <a 
@@ -384,8 +384,8 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
                             className="drawer-toggle"
                             onClick={() => setExpandedChatId(expandedChatId === q.id ? '' : q.id)}
                           >
-                            <span>💬 Chat History & Evidence ({q.chatHistory.length} chats)</span>
-                            <span>{expandedChatId === q.id ? '▲ Collapse' : '▼ Expand'}</span>
+                            <span>💬 対話履歴と参照法帖ファイル ({q.chatHistory.length} 件の対話)</span>
+                            <span>{expandedChatId === q.id ? '▲ 折りたたむ' : '▼ 展開'}</span>
                           </button>
                           
                           {expandedChatId === q.id && (
@@ -396,7 +396,7 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
                                   className={`chat-bubble-wrapper ${chat.role === 'user' ? 'user' : 'assistant'}`}
                                 >
                                   <span className="chat-bubble-sender">
-                                    {chat.role === 'user' ? 'User' : 'Gemini AI'}
+                                    {chat.role === 'user' ? '受験生' : 'Gemini AI'}
                                   </span>
                                   <div className="chat-bubble">
                                     {chat.content}
@@ -406,7 +406,7 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
                                           <img 
                                             key={aIdx} 
                                             src={att} 
-                                            alt="Evidence" 
+                                            alt="法典佐證" 
                                             style={{ width: '60px', height: '60px', borderRadius: '4px', cursor: 'zoom-in', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.2)' }}
                                             onClick={() => setLightboxImg(att)}
                                           />
@@ -425,8 +425,8 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
                 ) : (
                   <div className="empty-state">
                     <div className="empty-icon">📭</div>
-                    <h3>No questions saved for this point yet</h3>
-                    <p>Click "+ Add Question" on the top right or go to "Studio" to add screenshots and generate explanations!</p>
+                    <h3>この論点に保存された問題はまだありません</h3>
+                    <p>右上の「+ 問題追加」をクリックするか、「スタジオ」から問題を追加して解説を生成してください！</p>
                   </div>
                 )}
               </div>
@@ -434,8 +434,8 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
           ) : (
             <div className="empty-state" style={{ flex: 1 }}>
               <div className="empty-icon">📂</div>
-              <h3>Please select a point</h3>
-              <p>Select a point from the list on the left to view the generated explanations.</p>
+              <h3>論点を選択または作成してください</h3>
+              <p>左側の論点リストから選択して、対応する過去問解説を表示します。</p>
             </div>
           )}
         </section>
@@ -444,7 +444,7 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
       {/* Lightbox Modal */}
       {lightboxImg && (
         <div className="lightbox" onClick={() => setLightboxImg(null)}>
-          <img src={lightboxImg} alt="Zoomed Screenshot" className="lightbox-img" />
+          <img src={lightboxImg} alt="放大截圖" className="lightbox-img" />
         </div>
       )}
     </div>
