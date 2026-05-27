@@ -7,6 +7,78 @@ const DB_KEYS = {
   SUBJECTS: 'jud_exam_subjects'
 };
 
+// Simple IndexedDB wrapper for storing questions (helps bypass 5MB localStorage limit for base64 images)
+const idbName = 'judicial_exam_idb';
+const idbVersion = 1;
+const storeName = 'questions';
+
+const getIDB = () => {
+  return new Promise((resolve, reject) => {
+    if (!window.indexedDB) {
+      reject(new Error('IndexedDB is not supported by this browser'));
+      return;
+    }
+    const request = indexedDB.open(idbName, idbVersion);
+    request.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(storeName)) {
+        db.createObjectStore(storeName, { keyPath: 'id' });
+      }
+    };
+    request.onsuccess = (e) => {
+      resolve(e.target.result);
+    };
+    request.onerror = (e) => {
+      reject(e.target.error);
+    };
+  });
+};
+
+const idbGetAll = async () => {
+  const db = await getIDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(storeName, 'readonly');
+    const store = transaction.objectStore(storeName);
+    const request = store.getAll();
+    request.onsuccess = () => {
+      resolve(request.result || []);
+    };
+    request.onerror = () => {
+      reject(request.error);
+    };
+  });
+};
+
+const idbPut = async (item) => {
+  const db = await getIDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(storeName, 'readwrite');
+    const store = transaction.objectStore(storeName);
+    const request = store.put(item);
+    request.onsuccess = () => {
+      resolve(request.result);
+    };
+    request.onerror = () => {
+      reject(request.error);
+    };
+  });
+};
+
+const idbDelete = async (id) => {
+  const db = await getIDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(storeName, 'readwrite');
+    const store = transaction.objectStore(storeName);
+    const request = store.delete(id);
+    request.onsuccess = () => {
+      resolve();
+    };
+    request.onerror = () => {
+      reject(request.error);
+    };
+  });
+};
+
 // Map database snake_case to React camelCase
 const mapDbToJsQuestion = (q) => {
   if (!q) return null;
@@ -111,9 +183,38 @@ export const initDb = async () => {
       localStorage.setItem(DB_KEYS.POINTS, JSON.stringify(INITIAL_POINTS));
       localStorage.setItem(DB_VERSION_KEY, CURRENT_DB_VERSION);
     }
-    
-    if (!localStorage.getItem(DB_KEYS.QUESTIONS)) {
-      localStorage.setItem(DB_KEYS.QUESTIONS, JSON.stringify(INITIAL_QUESTIONS));
+
+    // IndexedDB initialization & migration from localStorage
+    try {
+      const existingIdbQuestions = await idbGetAll();
+      if (existingIdbQuestions.length === 0) {
+        console.log('IndexedDB questions store is empty, initializing...');
+        const localQuestionsRaw = localStorage.getItem(DB_KEYS.QUESTIONS);
+        if (localQuestionsRaw) {
+          const localQuestions = JSON.parse(localQuestionsRaw);
+          if (Array.isArray(localQuestions) && localQuestions.length > 0) {
+            console.log(`Migrating ${localQuestions.length} questions from localStorage to IndexedDB...`);
+            for (const q of localQuestions) {
+              await idbPut(q);
+            }
+          } else {
+            console.log('Seeding INITIAL_QUESTIONS to IndexedDB...');
+            for (const q of INITIAL_QUESTIONS) {
+              await idbPut(q);
+            }
+          }
+        } else {
+          console.log('Seeding INITIAL_QUESTIONS to IndexedDB...');
+          for (const q of INITIAL_QUESTIONS) {
+            await idbPut(q);
+          }
+        }
+      }
+    } catch (idbErr) {
+      console.error('Failed to initialize IndexedDB, relying on localStorage fallback', idbErr);
+      if (!localStorage.getItem(DB_KEYS.QUESTIONS)) {
+        localStorage.setItem(DB_KEYS.QUESTIONS, JSON.stringify(INITIAL_QUESTIONS));
+      }
     }
   }
 };
@@ -167,7 +268,13 @@ export const getQuestions = async () => {
     return data.map(mapDbToJsQuestion);
   }
 
-  return JSON.parse(localStorage.getItem(DB_KEYS.QUESTIONS));
+  try {
+    const idbQuestions = await idbGetAll();
+    return idbQuestions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  } catch (err) {
+    console.error('IndexedDB getQuestions failed, falling back to localStorage', err);
+    return JSON.parse(localStorage.getItem(DB_KEYS.QUESTIONS)) || [];
+  }
 };
 
 // Helper to convert DataURL (Base64) to Blob
@@ -215,7 +322,7 @@ export const saveQuestion = async (questionData) => {
     
     if (!supabase) {
       console.error('Supabase client is null despite being configured. Falling back to localStorage.');
-      // Fall through to localStorage path below
+      // Fall through to local fallback below
     } else {
       const bucketName = 'judicial-exam-assets';
       const qFolderId = questionData.id || `q-${Date.now()}`;
@@ -299,64 +406,90 @@ export const saveQuestion = async (questionData) => {
     }
   }
 
-  // === localStorage fallback ===
-  let questions = [];
+  // === local IndexedDB / localStorage fallback ===
   try {
-    const raw = localStorage.getItem(DB_KEYS.QUESTIONS);
-    questions = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(questions)) {
+    const sanitizedData = { ...questionData };
+    if (!sanitizedData.id) {
+      sanitizedData.id = `q-${Date.now()}`;
+      sanitizedData.createdAt = new Date().toISOString();
+    } else {
+      sanitizedData.updatedAt = new Date().toISOString();
+    }
+    
+    await idbPut(sanitizedData);
+    
+    // Sync backup (without screenshots if they are very large to prevent localStorage crash)
+    try {
+      const allIdbQuestions = await idbGetAll();
+      const strippedBackup = allIdbQuestions.map(q => ({
+        ...q,
+        screenshots: (q.screenshots || []).map(s => 
+          (s && s.startsWith('data:image/') && s.length > 100000) ? '[screenshot-too-large]' : s
+        )
+      }));
+      localStorage.setItem(DB_KEYS.QUESTIONS, JSON.stringify(strippedBackup));
+    } catch (backupErr) {
+      console.warn('LocalStorage backup failed (likely due to total storage quota)', backupErr);
+    }
+    
+    return await getQuestions();
+  } catch (idbErr) {
+    console.error('IndexedDB save failed, falling back to pure localStorage', idbErr);
+    
+    let questions = [];
+    try {
+      const raw = localStorage.getItem(DB_KEYS.QUESTIONS);
+      questions = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(questions)) {
+        questions = [];
+      }
+    } catch (parseErr) {
       questions = [];
     }
-  } catch (parseErr) {
-    console.error('Failed to parse localStorage questions, resetting', parseErr);
-    questions = [];
-  }
 
-  // Strip large Base64 screenshots to avoid exceeding localStorage quota (5MB limit)
-  const sanitizedData = { ...questionData };
-  if (sanitizedData.screenshots) {
-    sanitizedData.screenshots = sanitizedData.screenshots.map(src => {
-      // Keep base64 images but warn if they're very large
-      if (src && src.length > 500000) {
-        console.warn('Large Base64 screenshot detected (' + Math.round(src.length / 1024) + 'KB). May approach localStorage quota.');
-      }
-      return src;
-    });
-  }
-
-  if (sanitizedData.id) {
-    const idx = questions.findIndex(q => q.id === sanitizedData.id);
-    if (idx !== -1) {
-      questions[idx] = {
-        ...questions[idx],
-        ...sanitizedData,
-        updatedAt: new Date().toISOString()
-      };
+    const sanitizedData = { ...questionData };
+    if (sanitizedData.screenshots) {
+      sanitizedData.screenshots = sanitizedData.screenshots.map(src => {
+        if (src && src.length > 500000) {
+          console.warn('Large Base64 screenshot detected (' + Math.round(src.length / 1024) + 'KB).');
+        }
+        return src;
+      });
     }
-  } else {
-    const newQuestion = {
-      ...sanitizedData,
-      id: `q-${Date.now()}`,
-      createdAt: new Date().toISOString()
-    };
-    questions.push(newQuestion);
+
+    if (sanitizedData.id) {
+      const idx = questions.findIndex(q => q.id === sanitizedData.id);
+      if (idx !== -1) {
+        questions[idx] = {
+          ...questions[idx],
+          ...sanitizedData,
+          updatedAt: new Date().toISOString()
+        };
+      }
+    } else {
+      const newQuestion = {
+        ...sanitizedData,
+        id: `q-${Date.now()}`,
+        createdAt: new Date().toISOString()
+      };
+      questions.push(newQuestion);
+    }
+    
+    try {
+      localStorage.setItem(DB_KEYS.QUESTIONS, JSON.stringify(questions));
+    } catch (quotaErr) {
+      console.error('localStorage quota exceeded. Storing without screenshots...', quotaErr);
+      const stripped = questions.map(q => ({
+        ...q,
+        screenshots: (q.screenshots || []).map(s => 
+          (s && s.startsWith('data:image/') && s.length > 100000) ? '[screenshot-too-large]' : s
+        )
+      }));
+      localStorage.setItem(DB_KEYS.QUESTIONS, JSON.stringify(stripped));
+    }
+    
+    return questions;
   }
-  
-  try {
-    localStorage.setItem(DB_KEYS.QUESTIONS, JSON.stringify(questions));
-  } catch (quotaErr) {
-    console.error('localStorage quota exceeded. Trying without screenshots...', quotaErr);
-    // Try saving without Base64 screenshots
-    const stripped = questions.map(q => ({
-      ...q,
-      screenshots: (q.screenshots || []).map(s => 
-        (s && s.startsWith('data:image/') && s.length > 100000) ? '[screenshot-too-large]' : s
-      )
-    }));
-    localStorage.setItem(DB_KEYS.QUESTIONS, JSON.stringify(stripped));
-  }
-  
-  return questions;
 };
 
 export const deleteQuestion = async (id) => {
@@ -369,10 +502,29 @@ export const deleteQuestion = async (id) => {
     return await getQuestions();
   }
 
-  let questions = JSON.parse(localStorage.getItem(DB_KEYS.QUESTIONS));
-  questions = questions.filter(q => q.id !== id);
-  localStorage.setItem(DB_KEYS.QUESTIONS, JSON.stringify(questions));
-  return questions;
+  try {
+    await idbDelete(id);
+    
+    // Sync backup
+    try {
+      const allIdbQuestions = await idbGetAll();
+      const strippedBackup = allIdbQuestions.map(q => ({
+        ...q,
+        screenshots: (q.screenshots || []).map(s => 
+          (s && s.startsWith('data:image/') && s.length > 100000) ? '[screenshot-too-large]' : s
+        )
+      }));
+      localStorage.setItem(DB_KEYS.QUESTIONS, JSON.stringify(strippedBackup));
+    } catch (e) {}
+    
+    return await getQuestions();
+  } catch (idbErr) {
+    console.error('IndexedDB delete failed, falling back to localStorage', idbErr);
+    let questions = JSON.parse(localStorage.getItem(DB_KEYS.QUESTIONS)) || [];
+    questions = questions.filter(q => q.id !== id);
+    localStorage.setItem(DB_KEYS.QUESTIONS, JSON.stringify(questions));
+    return questions;
+  }
 };
 
 export const togglePriority = async (id) => {
@@ -392,13 +544,35 @@ export const togglePriority = async (id) => {
     return await getQuestions();
   }
 
-  const questions = JSON.parse(localStorage.getItem(DB_KEYS.QUESTIONS));
-  const idx = questions.findIndex(q => q.id === id);
-  if (idx !== -1) {
-    questions[idx].isPriority = !questions[idx].isPriority;
-    localStorage.setItem(DB_KEYS.QUESTIONS, JSON.stringify(questions));
+  try {
+    const allIdbQuestions = await idbGetAll();
+    const q = allIdbQuestions.find(item => item.id === id);
+    if (q) {
+      q.isPriority = !q.isPriority;
+      await idbPut(q);
+      
+      // Sync backup
+      try {
+        const strippedBackup = allIdbQuestions.map(item => ({
+          ...item,
+          screenshots: (item.screenshots || []).map(s => 
+            (s && s.startsWith('data:image/') && s.length > 100000) ? '[screenshot-too-large]' : s
+          )
+        }));
+        localStorage.setItem(DB_KEYS.QUESTIONS, JSON.stringify(strippedBackup));
+      } catch (e) {}
+    }
+    return await getQuestions();
+  } catch (idbErr) {
+    console.error('IndexedDB togglePriority failed, falling back to localStorage', idbErr);
+    const questions = JSON.parse(localStorage.getItem(DB_KEYS.QUESTIONS)) || [];
+    const idx = questions.findIndex(q => q.id === id);
+    if (idx !== -1) {
+      questions[idx].isPriority = !questions[idx].isPriority;
+      localStorage.setItem(DB_KEYS.QUESTIONS, JSON.stringify(questions));
+    }
+    return questions;
   }
-  return questions;
 };
 
 export const getPointStats = async () => {

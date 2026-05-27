@@ -335,16 +335,31 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
                         {/* Left: Screenshots */}
                         <div className="question-media">
                           <span className="section-label">元の問題スクリーンショット</span>
-                          {q.screenshots && q.screenshots.map((src, index) => (
-                            <div 
-                              key={index} 
-                              className="question-img-wrapper"
-                              onClick={() => setLightboxImg(src)}
-                            >
-                              <img src={src} alt="題目截圖" className="question-img" />
-                              <span className="question-img-label">画像 {index + 1} (クリックで拡大)</span>
-                            </div>
-                          ))}
+                          {q.screenshots && q.screenshots.map((src, index) => {
+                            const isTooLarge = src === '[screenshot-too-large]';
+                            return (
+                              <div 
+                                key={index} 
+                                className="question-img-wrapper"
+                                style={isTooLarge ? { cursor: 'default', flexDirection: 'column', padding: '16px', textAlign: 'center', background: '#2a1a1a', border: '1px solid #f85149' } : {}}
+                                onClick={isTooLarge ? undefined : () => setLightboxImg(src)}
+                              >
+                                {isTooLarge ? (
+                                  <React.Fragment>
+                                    <span style={{ fontSize: '24px', marginBottom: '8px' }}>⚠️</span>
+                                    <span style={{ fontSize: '11px', color: '#ff6b6b', lineHeight: '1.4' }}>
+                                      画像サイズ制限超過のため表示できません。このノートを削除し、再アップロードしてください。
+                                    </span>
+                                  </React.Fragment>
+                                ) : (
+                                  <React.Fragment>
+                                    <img src={src} alt="題目截圖" className="question-img" />
+                                    <span className="question-img-label">画像 {index + 1} (クリックで拡大)</span>
+                                  </React.Fragment>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
 
                         {/* Right: AI Analysis */}
