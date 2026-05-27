@@ -84,6 +84,11 @@ export const renderMarkdown = (text) => {
   return html;
 };
 
+export const getShortPointName = (name) => {
+  if (!name) return '';
+  return name.replace(/^.*?\d+章\s*/, '');
+};
+
 export default function Dashboard({ onGoToStudio, triggerToast }) {
   const [subjects, setSubjects] = useState([]);
   const [points, setPoints] = useState([]);
@@ -117,7 +122,7 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
       }
     } catch (e) {
       console.error('Failed to load data', e);
-      triggerToast('載入資料庫失敗，請確認配置', 'warning');
+      triggerToast('データベースの読み込みに失敗しました。設定を確認してください', 'warning');
     }
   };
 
@@ -128,46 +133,63 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
   // Update selected point when subject changes
   useEffect(() => {
     if (selectedSubjectId) {
-      const subjectPoints = points.filter(p => p.subjectId === selectedSubjectId);
+      // Keep current selection if it belongs to the active subject
+      const currentPoint = points.find(p => p.id === selectedPointId);
+      if (currentPoint && currentPoint.subjectId === selectedSubjectId) {
+        return;
+      }
+      // Otherwise, select the point with the most questions under the active subject
+      const subjectPoints = points
+        .filter(p => p.subjectId === selectedSubjectId)
+        .sort((a, b) => (stats[b.id] || 0) - (stats[a.id] || 0));
       if (subjectPoints.length > 0) {
         setSelectedPointId(subjectPoints[0].id);
       } else {
         setSelectedPointId('');
       }
     }
-  }, [selectedSubjectId, points]);
+  }, [selectedSubjectId, points, stats, selectedPointId]);
 
   // Actions
   const handleTogglePriority = async (id) => {
     try {
       const updated = await togglePriority(id);
       setQuestions(updated);
-      triggerToast('優先複習狀態已變更', 'warning');
+      triggerToast('優先復習ステータスが変更されました', 'warning');
     } catch (e) {
-      triggerToast('變更狀態失敗', 'warning');
+      triggerToast('ステータスの変更に失敗しました', 'warning');
     }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('確定要刪除這筆複習筆記嗎？')) {
+    if (window.confirm('この復習ノートを削除してもよろしいですか？')) {
       try {
         const updated = await deleteQuestion(id);
         setQuestions(updated);
         const stt = await getPointStats();
         setStats(stt);
-        triggerToast('筆記已刪除', 'success');
+        triggerToast('ノートが削除されました', 'success');
       } catch (e) {
-        triggerToast('刪除失敗', 'warning');
+        triggerToast('削除に失敗しました', 'warning');
       }
     }
   };
 
   // Filters
-  const filteredPoints = points.filter(p => {
-    if (p.subjectId !== selectedSubjectId) return false;
-    if (!pointSearchQuery) return true;
-    return p.name.toLowerCase().includes(pointSearchQuery.toLowerCase());
-  });
+  const filteredPoints = points
+    .filter(p => {
+      if (p.subjectId !== selectedSubjectId) return false;
+      if (!pointSearchQuery) return true;
+      return p.name.toLowerCase().includes(pointSearchQuery.toLowerCase());
+    })
+    .sort((a, b) => {
+      const countA = stats[a.id] || 0;
+      const countB = stats[b.id] || 0;
+      if (countB !== countA) {
+        return countB - countA;
+      }
+      return a.id.localeCompare(b.id);
+    });
 
   const activePoint = points.find(p => p.id === selectedPointId);
 
@@ -188,13 +210,13 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
       {/* Sidebar: Tier 2 (Points list) */}
       <aside className="glass-panel points-sidebar">
         <div className="sidebar-title">
-          <span>論點清單 (Tier 2)</span>
+          <span>論点リスト</span>
           <button 
             className="btn btn-secondary" 
             style={{ padding: '4px 10px', fontSize: '12px' }}
             onClick={() => onGoToStudio(selectedPointId)}
           >
-            + 新增題目
+            + 問題追加
           </button>
         </div>
         
@@ -202,7 +224,7 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
           <input 
             type="text" 
             className="search-input" 
-            placeholder="搜尋此科目論點..." 
+            placeholder="この科目の論点を検索..." 
             value={pointSearchQuery}
             onChange={(e) => setPointSearchQuery(e.target.value)}
           />
@@ -220,7 +242,7 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
                   setExpandedChatId(''); // Reset chat expand
                 }}
               >
-                <span className="point-name" title={p.name}>{p.name}</span>
+                <span className="point-name" title={p.name}>{getShortPointName(p.name)}</span>
                 <span className={`point-badge ${selectedPointId === p.id ? 'active' : ''}`}>
                   {stats[p.id] || 0}
                 </span>
@@ -228,7 +250,7 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
             ))
           ) : (
             <div className="empty-state" style={{ padding: '20px 10px', fontSize: '12px' }}>
-              找不到相符論點
+              該当する論点が見つかりません
             </div>
           )}
         </div>
@@ -250,7 +272,7 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
                 }}
               >
                 <span className="subject-tab-title">{s.name}</span>
-                <span className="subject-tab-count">{count} 題已存</span>
+                <span className="subject-tab-count">{count} 問保存済</span>
               </button>
             );
           })}
@@ -265,7 +287,7 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
                   <span className="detail-subject-tag">
                     {subjects.find(s => s.id === selectedSubjectId)?.name}
                   </span>
-                  <h2 className="detail-point-title">{activePoint.name}</h2>
+                  <h2 className="detail-point-title">{getShortPointName(activePoint.name)}</h2>
                 </div>
                 
                 <label className="priority-toggle-filter">
@@ -274,7 +296,7 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
                     checked={priorityFilter}
                     onChange={(e) => setPriorityFilter(e.target.checked)}
                   />
-                  <span>僅顯示優先複習</span>
+                  <span>優先復習のみ表示</span>
                 </label>
               </div>
 
@@ -288,19 +310,19 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
                       {/* Card Actions bar */}
                       <div className="question-card-header">
                         <span className="question-date">
-                          儲存時間：{new Date(q.createdAt).toLocaleString('zh-TW', { hour12: false })}
+                          保存日時：{new Date(q.createdAt).toLocaleString('ja-JP', { hour12: false })}
                         </span>
                         <div className="question-actions">
                           <button 
                             className={`card-btn ${q.isPriority ? 'active-priority' : ''}`}
-                            title={q.isPriority ? "取消優先複習" : "設為優先複習"}
+                            title={q.isPriority ? "優先復習を解除" : "優先復習に設定"}
                             onClick={() => handleTogglePriority(q.id)}
                           >
                             ★
                           </button>
                           <button 
                             className="card-btn delete-btn"
-                            title="刪除此筆記"
+                            title="このノートを削除"
                             onClick={() => handleDelete(q.id)}
                           >
                             🗑️
@@ -312,7 +334,7 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
                       <div className="question-card-body">
                         {/* Left: Screenshots */}
                         <div className="question-media">
-                          <span className="section-label">原始題目截圖</span>
+                          <span className="section-label">元の問題スクリーンショット</span>
                           {q.screenshots && q.screenshots.map((src, index) => (
                             <div 
                               key={index} 
@@ -320,14 +342,14 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
                               onClick={() => setLightboxImg(src)}
                             >
                               <img src={src} alt="題目截圖" className="question-img" />
-                              <span className="question-img-label">圖 {index + 1} (點擊放大)</span>
+                              <span className="question-img-label">画像 {index + 1} (クリックで拡大)</span>
                             </div>
                           ))}
                         </div>
 
                         {/* Right: AI Analysis */}
                         <div className="question-details">
-                          <span className="section-label">Gemini 校正後法律解析</span>
+                          <span className="section-label">Gemini 校正後の法律解説</span>
                           <div 
                             className="analysis-md"
                             dangerouslySetInnerHTML={{ __html: renderMarkdown(q.aiResponse) }}
@@ -336,7 +358,7 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
                           {/* External Lawyer Links */}
                           {q.referenceLinks && q.referenceLinks.length > 0 && (
                             <div className="external-links-section">
-                              <span className="section-label">外部權威見解與參考連結</span>
+                              <span className="section-label">外部の専門的見解・参考リンク</span>
                               <div className="links-grid">
                                 {q.referenceLinks.map((link, lidx) => (
                                   <a 
@@ -362,8 +384,8 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
                             className="drawer-toggle"
                             onClick={() => setExpandedChatId(expandedChatId === q.id ? '' : q.id)}
                           >
-                            <span>💬 對話歷程與法典佐證檔案 ({q.chatHistory.length} 條對話)</span>
-                            <span>{expandedChatId === q.id ? '▲ 收起' : '▼ 展開'}</span>
+                            <span>💬 対話履歴と参照法帖ファイル ({q.chatHistory.length} 件の対話)</span>
+                            <span>{expandedChatId === q.id ? '▲ 折りたたむ' : '▼ 展開'}</span>
                           </button>
                           
                           {expandedChatId === q.id && (
@@ -374,7 +396,7 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
                                   className={`chat-bubble-wrapper ${chat.role === 'user' ? 'user' : 'assistant'}`}
                                 >
                                   <span className="chat-bubble-sender">
-                                    {chat.role === 'user' ? '考生' : 'Gemini AI'}
+                                    {chat.role === 'user' ? '受験生' : 'Gemini AI'}
                                   </span>
                                   <div className="chat-bubble">
                                     {chat.content}
@@ -403,8 +425,8 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
                 ) : (
                   <div className="empty-state">
                     <div className="empty-icon">📭</div>
-                    <h3>此論點暫無已保存試題</h3>
-                    <p>請點擊右上方「+ 新增題目」或前往「工作台」新增題目截圖與生成解析！</p>
+                    <h3>この論点に保存された問題はまだありません</h3>
+                    <p>右上の「+ 問題追加」をクリックするか、「スタジオ」から問題を追加して解説を生成してください！</p>
                   </div>
                 )}
               </div>
@@ -412,8 +434,8 @@ export default function Dashboard({ onGoToStudio, triggerToast }) {
           ) : (
             <div className="empty-state" style={{ flex: 1 }}>
               <div className="empty-icon">📂</div>
-              <h3>請選擇或建立論點</h3>
-              <p>在左側論點清單中點選以查看對應的歷屆試題解析。</p>
+              <h3>論点を選択または作成してください</h3>
+              <p>左側の論点リストから選択して、対応する過去問解説を表示します。</p>
             </div>
           )}
         </section>

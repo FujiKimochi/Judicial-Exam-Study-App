@@ -42,6 +42,10 @@ const mapJsToDbQuestion = (q) => {
 
 // Initialize local storage database
 export const initDb = async () => {
+  const DB_VERSION_KEY = 'judicial_db_version';
+  const CURRENT_DB_VERSION = '3'; // Version 3 introduces and forces the 318 Japanese parsed points
+  const storedVersion = localStorage.getItem(DB_VERSION_KEY);
+
   if (isSupabaseConfigured()) {
     const supabase = getSupabaseClient();
     if (!supabase) return;
@@ -54,15 +58,33 @@ export const initDb = async () => {
         await supabase.from('subjects').insert(INITIAL_SUBJECTS);
       }
 
-      const { data: pts, error: ptError } = await supabase.from('points').select('id').limit(1);
-      if (!ptError && pts.length === 0) {
-        console.log('Seeding Supabase points...');
+      // Check if we need to force-upgrade points to Version 3
+      if (storedVersion !== CURRENT_DB_VERSION) {
+        console.log('Upgrading Supabase points list to version', CURRENT_DB_VERSION);
         const dbPoints = INITIAL_POINTS.map(p => ({
           id: p.id,
           subject_id: p.subjectId,
           name: p.name
         }));
-        await supabase.from('points').insert(dbPoints);
+        
+        // Use upsert to overwrite existing points and add new ones
+        const { error: upsertError } = await supabase.from('points').upsert(dbPoints);
+        if (upsertError) {
+          console.error('Failed to upsert points in Supabase during upgrade:', upsertError);
+        } else {
+          localStorage.setItem(DB_VERSION_KEY, CURRENT_DB_VERSION);
+        }
+      } else {
+        const { data: pts, error: ptError } = await supabase.from('points').select('id').limit(1);
+        if (!ptError && pts.length === 0) {
+          console.log('Seeding Supabase points...');
+          const dbPoints = INITIAL_POINTS.map(p => ({
+            id: p.id,
+            subject_id: p.subjectId,
+            name: p.name
+          }));
+          await supabase.from('points').insert(dbPoints);
+        }
       }
 
       const { data: qsts, error: qError } = await supabase.from('questions').select('id').limit(1);
@@ -83,9 +105,13 @@ export const initDb = async () => {
     if (!localStorage.getItem(DB_KEYS.SUBJECTS)) {
       localStorage.setItem(DB_KEYS.SUBJECTS, JSON.stringify(INITIAL_SUBJECTS));
     }
-    if (!localStorage.getItem(DB_KEYS.POINTS)) {
+    
+    // Check if points list is empty or if we need to upgrade to Version 3
+    if (!localStorage.getItem(DB_KEYS.POINTS) || storedVersion !== CURRENT_DB_VERSION) {
       localStorage.setItem(DB_KEYS.POINTS, JSON.stringify(INITIAL_POINTS));
+      localStorage.setItem(DB_VERSION_KEY, CURRENT_DB_VERSION);
     }
+    
     if (!localStorage.getItem(DB_KEYS.QUESTIONS)) {
       localStorage.setItem(DB_KEYS.QUESTIONS, JSON.stringify(INITIAL_QUESTIONS));
     }

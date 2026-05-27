@@ -33,7 +33,7 @@ export default function App() {
   // Fetch available models from Gemini API
   const fetchAvailableModels = useCallback(async (apiKey) => {
     if (!apiKey || apiKey.trim().length < 10) {
-      setModelFetchError('請先輸入有效的 API Key');
+      setModelFetchError('有効なAPIキーを先に入力してください');
       return;
     }
 
@@ -56,7 +56,7 @@ export default function App() {
       const data = await res.json();
 
       if (!data || !data.models || !Array.isArray(data.models)) {
-        throw new Error('API 回應格式異常');
+        throw new Error('APIレスポンスの形式が異常です');
       }
 
       var filtered = data.models
@@ -78,12 +78,12 @@ export default function App() {
         }
         setModelFetchError('');
       } else {
-        setModelFetchError('未找到支援 generateContent 的模型，使用預設清單');
+        setModelFetchError('generateContentをサポートするモデルが見つかりません。デフォルトのリストを使用します');
         setAvailableModels(DEFAULT_FALLBACK_MODELS);
       }
     } catch (e) {
       console.error('Failed to fetch models from Gemini API', e);
-      setModelFetchError('取得模型失敗: ' + (e.message || '未知錯誤'));
+      setModelFetchError('モデル取得失敗: ' + (e.message || '不明なエラー'));
       setAvailableModels(DEFAULT_FALLBACK_MODELS);
     } finally {
       setIsLoadingModels(false);
@@ -154,19 +154,19 @@ export default function App() {
         geminiApiKey: geminiApiKey.trim(),
         geminiModel: geminiModel.trim() || 'gemini-2.5-flash'
       }));
-      triggerToast('設定已儲存！即將重新載入...', 'success');
+      triggerToast('設定が保存されました！再読み込みします...', 'success');
       setShowSettings(false);
       setTimeout(function() {
         window.location.reload();
       }, 1000);
     } catch (err) {
-      triggerToast('儲存設定失敗', 'warning');
+      triggerToast('設定の保存に失敗しました', 'warning');
     }
   };
 
   const handleClearSettings = function() {
     localStorage.removeItem('supabase_settings');
-    triggerToast('設定已清除！回歸本地模式，即將重新載入...', 'success');
+    triggerToast('設定がクリアされました！ローカルモードに戻り、再読み込みします...', 'success');
     setShowSettings(false);
     setTimeout(function() {
       window.location.reload();
@@ -192,12 +192,12 @@ export default function App() {
         <div className="brand">
           <div className="brand-logo">司</div>
           <div>
-            <h1 className="brand-name">司法預備演習筆記</h1>
+            <h1 className="brand-name">司法予備短答演習ノート</h1>
             <span className="brand-tagline">
-              Gemini AI 智能解析與論點管理 {
+              Gemini AI スマート解析・論点管理 {
                 (dbConnected && aiConnected) ? '☁️ Cloud + 🤖 AI' :
                 dbConnected ? '☁️ Cloud DB' :
-                aiConnected ? '🤖 Gemini AI' : '💾 Local'
+                aiConnected ? '🤖 Gemini AI' : '💾 ローカル'
               }
             </span>
           </div>
@@ -209,13 +209,13 @@ export default function App() {
               className={'nav-btn ' + (activeTab === 'dashboard' ? 'active' : '')}
               onClick={function() { setActiveTab('dashboard'); }}
             >
-              📊 儀表板 (Dashboard)
+              📊 ダッシュボード (Dashboard)
             </button>
             <button 
               className={'nav-btn ' + (activeTab === 'studio' ? 'active' : '')}
               onClick={function() { handleGoToStudio(''); }}
             >
-              🛠️ 工作台 (Studio)
+              🛠️ スタジオ (Studio)
             </button>
           </nav>
           
@@ -223,12 +223,12 @@ export default function App() {
             className={'btn btn-secondary ' + (hasAnyConnection ? 'active-priority' : '')} 
             style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}
             onClick={function() { setShowSettings(true); }}
-            title="系統連線設定"
+            title="システム接続設定"
           >
             ⚙️ {
-              (dbConnected && aiConnected) ? '雙線已連線' :
-              dbConnected ? '雲端 DB 已連線' :
-              aiConnected ? 'Gemini AI 已連線' : '未連線'
+              (dbConnected && aiConnected) ? '接続完了' :
+              dbConnected ? 'クラウドDB接続中' :
+              aiConnected ? 'Gemini AI接続中' : '未接続'
             }
           </button>
         </div>
@@ -254,21 +254,21 @@ export default function App() {
       {showSettings && (
         <div className="settings-overlay" onClick={function() { setShowSettings(false); }}>
           <div className="settings-modal" onClick={function(e) { e.stopPropagation(); }}>
-            <h2>⚙️ 系統 API 與資料庫配置設定</h2>
+            <h2>⚙️ システムAPI・データベース接続設定</h2>
             <p className="settings-desc">
-              請在此貼上您的連線金鑰。Gemini API Key 用於聯網與法律解析；Supabase 憑證則用於雲端備份與多圖儲存（若未填寫 Supabase 則自動儲存於本地）。
+              接続用のキーを設定してください。Gemini APIキーはインターネット検索および法律解説の生成に使用されます。Supabase認証情報はクラウドバックアップおよび画像保存に使用されます（Supabase未設定の場合はローカルに保存されます）。
             </p>
 
             <form onSubmit={handleSaveSettings}>
               {/* Gemini API Key Section */}
               <div className="settings-section">
                 <div className="form-group">
-                  <label className="form-label">🤖 Gemini API Key</label>
+                  <label className="form-label">🤖 Gemini APIキー</label>
                   <div className="settings-input-row">
                     <input 
                       type="password" 
                       className="settings-input"
-                      placeholder="AIzaSy... (若空白則使用模擬 AI 服務)"
+                      placeholder="AIzaSy... (空欄の場合はモックAIサービスを使用します)"
                       value={geminiApiKey}
                       onChange={function(e) { setGeminiApiKey(e.target.value); }}
                       onBlur={handleApiKeyBlur}
@@ -278,20 +278,20 @@ export default function App() {
                       className="btn-fetch-models"
                       onClick={handleFetchModelsClick}
                       disabled={isLoadingModels || !geminiApiKey}
-                      title="使用 API Key 取得目前可使用的模型清單"
+                      title="APIキーを使用して現在利用可能なモデルリストを取得します"
                     >
                       {isLoadingModels ? (
                         <React.Fragment>
                           <div className="spinner-sm"></div>
-                          載入中
+                          読込中
                         </React.Fragment>
                       ) : (
-                        <React.Fragment>🔄 取得模型</React.Fragment>
+                        <React.Fragment>🔄 モデル取得</React.Fragment>
                       )}
                     </button>
                   </div>
                   <span className="settings-hint">
-                    可在 Google AI Studio 免費申請此金鑰。輸入後點擊「取得模型」即可載入可用模型。
+                    Google AI Studioでこのキーを無料申請できます。入力後、「モデル取得」をクリックすると利用可能なモデルが読み込まれます。
                   </span>
                 </div>
               </div>
@@ -300,10 +300,10 @@ export default function App() {
               <div className="settings-section">
                 <div className="form-group">
                   <label className="form-label">
-                    🤖 選擇 AI 模型 (Model)
+                    🤖 AIモデルを選択 (Model)
                     {modelsFetched && (
                       <span className="model-count-badge">
-                        ✓ 已載入 {availableModels.length} 個模型
+                        ✓ {availableModels.length}個のモデルを読み込みました
                       </span>
                     )}
                   </label>
@@ -323,15 +323,15 @@ export default function App() {
                   )}
                   <span className="settings-hint">
                     {modelsFetched 
-                      ? '已從 Google API 即時取得可用模型清單。' 
-                      : '目前顯示預設模型清單。請輸入 API Key 並點擊「取得模型」以載入最新清單。'}
+                      ? 'Google APIからリアルタイムに取得したモデル一覧です。' 
+                      : 'デフォルトのモデルリストを表示しています。APIキーを入力して「モデル取得」をクリックすると、最新のリストが読み込まれます。'}
                   </span>
                 </div>
               </div>
 
               {/* Supabase Section */}
               <div className="settings-section">
-                <h4>☁️ Supabase 雲端備份設定 (選填)</h4>
+                <h4>☁️ Supabase クラウドバックアップ設定 (任意)</h4>
 
                 <div className="form-group">
                   <label className="form-label">🌐 Supabase URL</label>
@@ -356,23 +356,23 @@ export default function App() {
                 </div>
 
                 <div className="settings-warning-box">
-                  ⚠️ <strong>注意</strong>：請確認您已在 Supabase 後台 API 設定中，將 <strong>judicial_exam</strong> schema 加入 <strong>Exposed schemas</strong> 名單，並設定好 <strong>judicial-exam-assets</strong> Storage Bucket。
+                  ⚠️ <strong>注意</strong>：Supabase管理画面のAPI設定で、<strong>judicial_exam</strong>スキーマを<strong>Exposed schemas</strong>に追加し、<strong>judicial-exam-assets</strong>ストレージバケットを設定していることを確認してください。
                 </div>
               </div>
 
               {/* Action Buttons */}
               <div className="settings-actions">
                 <button type="button" className="btn btn-secondary" onClick={function() { setShowSettings(false); }}>
-                  取消
+                  キャンセル
                 </button>
                 <div className="settings-actions-right">
                   {hasAnyConnection && (
                     <button type="button" className="btn btn-secondary delete-btn" onClick={handleClearSettings}>
-                      清除連線
+                      接続をクリア
                     </button>
                   )}
                   <button type="submit" className="btn btn-primary">
-                    儲存並重新整理
+                    保存してリロード
                   </button>
                 </div>
               </div>

@@ -2,6 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { getPoints, getSubjects, saveQuestion } from '../services/db';
 import { generateInitialAnalysis, chatWithAi, searchExternalLinks } from '../services/ai';
 
+const getShortPointName = (name) => {
+  if (!name) return '';
+  return name.replace(/^.*?\d+章\s*/, '');
+};
+
 export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) {
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -72,7 +77,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
       reader.readAsDataURL(file);
     });
     
-    triggerToast(`已上傳 ${files.length} 張題目截圖`, 'success');
+    triggerToast(`問題のスクリーンショットを ${files.length} 枚アップロードしました`, 'success');
   };
 
   const removeScreenshot = (idx) => {
@@ -91,7 +96,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
       };
       reader.readAsDataURL(file);
     });
-    triggerToast(`已附加 ${files.length} 張法典佐證圖`, 'success');
+    triggerToast(`法帖のエビデンス画像を ${files.length} 枚添付しました`, 'success');
   };
 
   const removeCodebookPhoto = (idx) => {
@@ -101,7 +106,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
   // Step 1 Submit: Generate initial analysis
   const handleGenerateAnalysis = async () => {
     if (screenshots.length === 0) {
-      triggerToast('請先上傳至少一張題目截圖', 'warning');
+      triggerToast('問題のスクリーンショットを少なくとも1枚アップロードしてください', 'warning');
       return;
     }
 
@@ -116,10 +121,10 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
       ]);
       
       setCurrentStep(2);
-      triggerToast('AI 解析已初步生成！', 'success');
+      triggerToast('AI解説の初期生成が完了しました！', 'success');
     } catch (err) {
       console.error(err);
-      triggerToast(`呼叫 Gemini 失敗: ${err.message || err}`, 'warning');
+      triggerToast(`Geminiの呼び出しに失敗しました: ${err.message || err}`, 'warning');
     } finally {
       setIsLoading(false);
     }
@@ -151,7 +156,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
       }
     } catch (e) {
       console.error(e);
-      triggerToast(`AI 對話錯誤: ${e.message || e}`, 'warning');
+      triggerToast(`AI対話エラー: ${e.message || e}`, 'warning');
     } finally {
       setIsLoading(false);
     }
@@ -169,9 +174,9 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
         const uniqueNew = results.filter(r => !existingUrls.includes(r.url));
         return [...prev, ...uniqueNew];
       });
-      triggerToast('已成功檢索外部權威律師見解', 'success');
+      triggerToast('外部の専門的見解の検索に成功しました', 'success');
     } catch (e) {
-      triggerToast('聯網檢索失敗', 'warning');
+      triggerToast('ウェブ検索に失敗しました', 'warning');
     } finally {
       setIsSearchingLinks(false);
     }
@@ -195,7 +200,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
   // Step 3 Final: Save Question to DB
   const handleSaveQuestion = async () => {
     if (!selectedPointId) {
-      triggerToast('請選擇要歸檔的論點標籤', 'warning');
+      triggerToast('保存先の論点タグを選択してください', 'warning');
       return;
     }
 
@@ -212,12 +217,12 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
     setIsLoading(true);
     try {
       await saveQuestion(questionData);
-      triggerToast('筆記已成功歸檔儲存！', 'success');
+      triggerToast('ノートが正常に保存されました！', 'success');
       onSaveSuccess();
     } catch (e) {
       console.error('Save question failed:', e);
       const errDetail = (e && e.message) ? e.message : (typeof e === 'string' ? e : JSON.stringify(e));
-      triggerToast('儲存失敗: ' + errDetail, 'warning');
+      triggerToast('保存に失敗しました: ' + errDetail, 'warning');
     } finally {
       setIsLoading(false);
     }
@@ -227,13 +232,13 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
     <div className="studio-container animate-fade-in">
       {/* Sidebar: Step Indicator */}
       <aside className="glass-panel studio-steps-sidebar">
-        <h3 style={{ fontSize: '15px', color: 'var(--text-primary)', marginBottom: '8px' }}>工作台導航</h3>
+        <h3 style={{ fontSize: '15px', color: 'var(--text-primary)', marginBottom: '8px' }}>ワークスペースナビ</h3>
         
         <div className={`step-indicator ${currentStep === 1 ? 'active' : ''} ${currentStep > 1 ? 'completed' : ''}`}>
           <div className="step-number">1</div>
           <div>
             <p style={{ margin: 0, fontWeight: 600 }}>Step 1</p>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>上傳與初步生成</span>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>アップロードと初期生成</span>
           </div>
         </div>
 
@@ -241,7 +246,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
           <div className="step-number">2</div>
           <div>
             <p style={{ margin: 0, fontWeight: 600 }}>Step 2</p>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>對話推敲與防幻覺</span>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>対話校正とハルシネーション対策</span>
           </div>
         </div>
 
@@ -249,12 +254,12 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
           <div className="step-number">3</div>
           <div>
             <p style={{ margin: 0, fontWeight: 600 }}>Step 3</p>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>確認與分類儲存</span>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>確認と分類保存</span>
           </div>
         </div>
 
         <div style={{ marginTop: 'auto', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', fontSize: '11px', color: 'var(--text-muted)', lineHeight: '1.4' }}>
-          💡 <strong>防幻覺小貼士</strong>：在第二步上傳您的實體六法照片，Gemini 會比對照片文字，確保條文內容 100% 正確！
+          💡 <strong>ハルシネーション対策のコツ</strong>：ステップ2で六法全書の写真をアップロードすると、Geminiが画像テキストを読み取り、条文内容を100%正確に校正します！
         </div>
       </aside>
 
@@ -264,8 +269,8 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
         {isLoading ? (
           <div className="loading-overlay">
             <div className="spinner"></div>
-            <h3 style={{ fontFamily: 'var(--font-title)' }}>Gemini AI 正在思考中...</h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>正在為您結合條文與判例主旨，分析法律要件...</p>
+            <h3 style={{ fontFamily: 'var(--font-title)' }}>Gemini AIが思考中...</h3>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>条文と判例の趣旨を組み合わせ、法律上の要件を分析しています...</p>
           </div>
         ) : (
           <>
@@ -273,7 +278,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
             {currentStep === 1 && (
               <div className="studio-step-content animate-fade-in">
                 <h2 style={{ fontSize: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span>Step 1: 上傳題目截圖並進行初步生成</span>
+                  <span>Step 1: 問題スクリーンショットのアップロードと初期生成</span>
                 </h2>
 
                 {/* Drop Zone */}
@@ -282,8 +287,8 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                   onClick={() => document.getElementById('screenshot-upload').click()}
                 >
                   <div className="drop-zone-icon">📁</div>
-                  <p className="drop-zone-text">拖曳多張題目截圖到這裡，或 <strong>點擊選擇檔案</strong></p>
-                  <p className="drop-zone-subtext">支援 JPEG, PNG 等圖片格式（支援多圖同時上傳）</p>
+                  <p className="drop-zone-text">複数の問題スクリーンショットをここにドラッグ＆ドロップするか、<strong>クリックしてファイルを選択</strong></p>
+                  <p className="drop-zone-subtext">JPEG、PNGなどの画像形式に対応（複数画像の同時アップロード対応）</p>
                   <input 
                     type="file" 
                     id="screenshot-upload" 
@@ -297,7 +302,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                 {/* Upload Previews */}
                 {screenshots.length > 0 && (
                   <div className="form-group">
-                    <label className="form-label">已上傳的截圖 ({screenshots.length} 張)</label>
+                    <label className="form-label">アップロード済みのスクリーンショット ({screenshots.length} 枚)</label>
                     <div className="image-previews-grid">
                       {screenshots.map((src, idx) => (
                         <div key={idx} className="img-preview-card">
@@ -310,18 +315,18 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                 )}
 
                 {/* Prompt Parameters */}
-                <div className="form-group">
-                  <label className="form-label">🤖 預設提示詞 (防幻覺固定提示詞)</label>
-                  <div className="form-input-static">
-                    請結合條文與判例的主旨，並運用具體實例，以深入淺出的方式進行解析。
+                <div className="form-group" style={{ marginTop: '20px' }}>
+                  <label className="form-label">🤖 AIへの指示（プリセット）</label>
+                  <div className="form-input-static" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
+                    ➀　日本法律や判例の前提で、まず本問の論点を一言で説明してください。それに、条文や判例の趣旨を踏まえて具体例を挙げながら分かりやすく解説してください。
                   </div>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">✍️ 追加提示詞 (自由填寫)</label>
+                <div className="form-group" style={{ marginTop: '20px' }}>
+                  <label className="form-label">✍️ 追加プロンプト (自由入力)</label>
                   <textarea 
                     className="form-textarea"
-                    placeholder="例如：請特別比較此行為與無權處分的差異、請用列表方式呈現構成要件差異..."
+                    placeholder="例：この解説に加えて、AとBの構成要件の違いを表形式で比較してください..."
                     value={customPrompt}
                     onChange={(e) => setCustomPrompt(e.target.value)}
                   />
@@ -331,7 +336,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                 <div className="studio-actions">
                   <div></div> {/* Empty for layout align */}
                   <button className="btn btn-primary" onClick={handleGenerateAnalysis}>
-                    呼叫 Gemini 生成解析 →
+                    Geminiで解説を生成 →
                   </button>
                 </div>
               </div>
@@ -341,7 +346,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
             {currentStep === 2 && (
               <div className="studio-step-content animate-fade-in">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h2 style={{ fontSize: '20px' }}>Step 2: 深度對話推敲與防 AI 幻覺校正</h2>
+                  <h2 style={{ fontSize: '20px' }}>Step 2: 詳細な対話校正とAIハルシネーション対策</h2>
                   
                   {/* Google Search Link Retrieval */}
                   <button 
@@ -350,18 +355,18 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                     onClick={handleTriggerSearch}
                     disabled={isSearchingLinks}
                   >
-                    {isSearchingLinks ? '正在檢索...' : '🌐 檢索律師權威見解連結'}
+                    {isSearchingLinks ? '検索中...' : '🌐 弁護士の見解リンクを検索'}
                   </button>
                 </div>
 
                 <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                  您可以在此與 Gemini 進一步研討。如果擔心 AI 幻覺，請上傳您的「法典相片」或「條文截圖」作為補充證據！
+                  ここでGeminiとさらに深く検討できます。ハルシネーション（AIの嘘）が心配な場合は、六法全書の写真や条文スクリーンショットを添付ファイルとして追加してください！
                 </p>
 
                 {/* Reference Links Section (if any retrieved) */}
                 {referenceLinks.length > 0 && (
                   <div className="search-results-box animate-fade-in">
-                    <span className="section-label" style={{ color: 'var(--accent-cyan)' }}>檢索到的外部參考資料：</span>
+                    <span className="section-label" style={{ color: 'var(--accent-cyan)' }}>検索された外部参考資料：</span>
                     <div className="links-grid" style={{ marginTop: '8px' }}>
                       {referenceLinks.map((link, idx) => (
                         <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" className="external-link-pill">
@@ -378,7 +383,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                     {chatHistory.map((chat, idx) => (
                       <div key={idx} className={`chat-bubble-wrapper ${chat.role === 'user' ? 'user' : 'assistant'}`}>
                         <span className="chat-bubble-sender">
-                          {chat.role === 'user' ? '考生' : 'Gemini AI'}
+                          {chat.role === 'user' ? '受験生' : 'Gemini AI'}
                         </span>
                         <div className="chat-bubble" style={{ whiteSpace: 'pre-wrap' }}>
                           {chat.content}
@@ -403,11 +408,11 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                   {/* Attachment indicator */}
                   {codebookPhotos.length > 0 && (
                     <div className="attachment-indicator-bar animate-fade-in">
-                      <span>📎 準備隨訊息發送的法典截圖 ({codebookPhotos.length} 張)：</span>
+                      <span>📎 メッセージと同時に送信する六法全書写真 ({codebookPhotos.length} 枚)：</span>
                       <div style={{ display: 'flex', gap: '6px' }}>
                         {codebookPhotos.map((src, idx) => (
                           <div key={idx} style={{ position: 'relative' }}>
-                            <img src={src} alt="法典" style={{ width: '24px', height: '24px', borderRadius: '2px', objectFit: 'cover' }} />
+                            <img src={src} alt="六法全書" style={{ width: '24px', height: '24px', borderRadius: '2px', objectFit: 'cover' }} />
                             <button 
                               style={{ position: 'absolute', top: -3, right: -3, background: 'red', color: 'white', border: 'none', borderRadius: '50%', width: '10px', height: '10px', fontSize: '6px', display: 'flex', alignItems: 'center', justify: 'center', cursor: 'pointer' }}
                               onClick={() => removeCodebookPhoto(idx)}
@@ -442,7 +447,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                     <input 
                       type="text" 
                       className="chat-input"
-                      placeholder="輸入您的追問... 上傳法典照片以糾正AI的偏差見解"
+                      placeholder="質問を入力してください... 六法全書の写真を添付してAIの誤りを正せます"
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
                       onKeyDown={(e) => {
@@ -463,10 +468,10 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                 {/* Navigation Actions */}
                 <div className="studio-actions">
                   <button className="btn btn-secondary" onClick={() => setCurrentStep(1)}>
-                    ← 上一步 (修改題目)
+                    ← 戻る (問題の編集)
                   </button>
                   <button className="btn btn-primary" onClick={() => setCurrentStep(3)}>
-                    繼續下一步 (歸檔儲存) →
+                    次へ (分類して保存) →
                   </button>
                 </div>
               </div>
@@ -475,18 +480,18 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
             {/* STEP 3: CATEGORIZATION AND CONFIRM SAVE */}
             {currentStep === 3 && (
               <div className="studio-step-content animate-fade-in" style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
-                <h2 style={{ fontSize: '20px', marginBottom: '8px' }}>Step 3: 選擇論點與確認儲存</h2>
+                <h2 style={{ fontSize: '20px', marginBottom: '8px' }}>Step 3: 論点の選択と保存確認</h2>
                 <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                  請選擇該題目所對應的法典論點（點次），此題目將會與其綁定並出現在您的儀表板上。
+                  この問題に対応する論点を選択してください。選択した論点にバインドされ、ダッシュボードに表示されます。
                 </p>
 
                 {/* Point Selection Suggest Search */}
                 <div className="form-group suggest-search-container" style={{ marginTop: '20px' }}>
-                  <label className="form-label">🔍 選擇歸檔論點標籤 (必填)</label>
+                  <label className="form-label">🔍 保存先論点タグの選択 (必須)</label>
                   <input 
                     type="text" 
                     className="search-input"
-                    placeholder="請輸入論點關鍵字或科目搜尋（例如：無權代理）..."
+                    placeholder="論点キーワードまたは科目名で検索（例：無権代理）..."
                     value={pointSearchQuery}
                     onChange={(e) => {
                       setPointSearchQuery(e.target.value);
@@ -505,21 +510,21 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                               className="suggest-item"
                               onClick={() => handleSelectPoint(pt)}
                             >
-                              <span>{pt.name}</span>
+                              <span>{getShortPointName(pt.name)}</span>
                               <span className="suggest-item-subject">{subName}</span>
                             </div>
                           );
                         })
                       ) : (
                         <div className="suggest-item" style={{ color: 'var(--text-muted)' }}>
-                          無相符論點標籤
+                          一致する論点タグが見つかりません
                         </div>
                       )}
                     </div>
                   )}
                   {selectedPointId && (
                     <div style={{ fontSize: '12px', color: 'var(--accent-cyan)', marginTop: '4px' }}>
-                      ✓ 已選定歸檔至：<strong>{allPoints.find(p => p.id === selectedPointId)?.name}</strong>
+                      ✓ 保存先に選定されました：<strong>{getShortPointName(allPoints.find(p => p.id === selectedPointId)?.name)}</strong>
                     </div>
                   )}
                 </div>
@@ -537,9 +542,9 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                     onClick={(e) => e.stopPropagation()} // Avoid double toggling
                   />
                   <div>
-                    <span className="priority-label-bold">⭐ 標記為「優先複習」重點題目</span>
+                    <span className="priority-label-bold">⭐「優先復習」の重要問題としてマークする</span>
                     <p className="priority-subtext" style={{ margin: 0 }}>
-                      勾選後，此題目將會在儀表板上以金黃霓虹邊框高亮顯示，便於臨考前快速篩選與衝刺。
+                      チェックを入れると、この問題がダッシュボード上で黄色のネオン枠で強調表示され、試験直前のクイックフィルターとラストスパートに役立ちます。
                     </p>
                   </div>
                 </div>
@@ -547,14 +552,14 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                 {/* Navigation Actions */}
                 <div className="studio-actions" style={{ marginTop: '40px' }}>
                   <button className="btn btn-secondary" onClick={() => setCurrentStep(2)}>
-                    ← 上一步 (對話校正)
+                    ← 戻る (対話校正)
                   </button>
                   <button 
                     className="btn btn-accent" 
                     onClick={handleSaveQuestion}
                     disabled={!selectedPointId}
                   >
-                    💾 確認儲存，彙整至儀表板
+                    💾 保存してダッシュボードに統合
                   </button>
                 </div>
               </div>
