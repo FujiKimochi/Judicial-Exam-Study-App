@@ -1648,3 +1648,37 @@ a:hover {
   box-shadow: 0 0 8px rgba(213, 0, 249, 0.2);
 }
 
+.highlighter-color-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  padding: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.highlighter-color-dot:hover {
+  transform: scale(1.2);
+}
+
+.highlighter-eraser-btn {
+  background: transparent;
+  border: none;
+  color: #ff4d4d;
+  cursor: pointer;
+  font-size: 13px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.highlighter-eraser-btn:hover {
+  transform: scale(1.25);
+}
+

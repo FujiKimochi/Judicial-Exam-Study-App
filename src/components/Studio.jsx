@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getPoints, getSubjects, saveQuestion } from '../services/db';
 import { generateInitialAnalysis, chatWithAi, searchExternalLinks } from '../services/ai';
 import { renderMarkdown } from './Dashboard';
@@ -7,6 +7,84 @@ const getShortPointName = (name) => {
   if (!name) return '';
   return name.replace(/^.*?\d+章\s*/, '');
 };
+
+const ChatBubble = React.memo(({ 
+  chat, 
+  idx, 
+  highlighterMode, 
+  editingIdx, 
+  editingText, 
+  setEditingText, 
+  setEditingIdx,
+  handleToggleEdit, 
+  handleSaveEdit, 
+  handleTextSelection 
+}) => {
+  return (
+    <div className={`chat-bubble-wrapper ${chat.role === 'user' ? 'user' : 'assistant'}`}>
+      <span className="chat-bubble-sender" style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+        <span>{chat.role === 'user' ? '受験生' : 'Gemini AI'}</span>
+        {chat.role !== 'user' && (
+          <button 
+            className="chat-bubble-edit-btn" 
+            onClick={() => handleToggleEdit(idx)}
+            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '11px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+          >
+            {editingIdx === idx ? '💾 保存' : '✏️ 編集'}
+          </button>
+        )}
+      </span>
+      
+      {editingIdx === idx ? (
+        <div className="chat-bubble" style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-medium)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px', alignSelf: 'stretch', width: '100%' }}>
+          <textarea
+            className="chat-bubble-textarea"
+            value={editingText}
+            onChange={(e) => setEditingText(e.target.value)}
+            style={{ width: '100%', minHeight: '150px', background: 'transparent', color: '#fff', border: 'none', outline: 'none', fontSize: '13px', fontFamily: 'inherit', resize: 'vertical', lineHeight: '1.6' }}
+            placeholder="解答を編集します。==テキスト== で蛍光筆でハイライトできます。"
+          />
+          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+            <button 
+              className="btn btn-secondary" 
+              style={{ padding: '3px 8px', fontSize: '11px' }}
+              onClick={() => setEditingIdx(-1)}
+            >
+              キャンセル
+            </button>
+            <button 
+              className="btn btn-primary" 
+              style={{ padding: '3px 8px', fontSize: '11px' }}
+              onClick={() => handleSaveEdit(idx)}
+            >
+              保存
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div 
+          className="chat-bubble"
+          style={{ cursor: highlighterMode ? 'text' : 'default' }}
+          onMouseUp={() => handleTextSelection(idx)}
+        >
+          <div dangerouslySetInnerHTML={{ __html: renderMarkdown(chat.content) }} />
+          {chat.attachments && chat.attachments.length > 0 && (
+            <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+              {chat.attachments.map((img, iIdx) => (
+                <img 
+                  key={iIdx} 
+                  src={img} 
+                  alt="附件" 
+                  style={{ width: '45px', height: '45px', borderRadius: '4px', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.2)' }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+});
 
 export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) {
   const [currentStep, setCurrentStep] = useState(1);
@@ -42,6 +120,8 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
 
   const chatEndRef = useRef(null);
 
+
+
   // Load points and subjects asynchronously
   useEffect(() => {
     const loadPointsAndSubjects = async () => {
@@ -76,7 +156,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
   }, [chatHistory]);
 
   // Handle text highlighting and manual edits in Step 2
-  const handleTextSelection = (idx, e) => {
+  const handleTextSelection = useCallback((idx) => {
     if (!highlighterMode) return;
     const selection = window.getSelection();
     const text = selection.toString().trim();
@@ -91,10 +171,10 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
     setSelectionInfo({
       text: text,
       chatIdx: idx,
-      top: rect.top + window.scrollY - 36,
-      left: rect.left + window.scrollX + (rect.width / 2) - 40
+      top: rect.top - 45,
+      left: rect.left + (rect.width / 2) - 60
     });
-  };
+  }, [highlighterMode, editingIdx]);
 
   const handleApplyHighlight = (color) => {
     if (!selectionInfo) return;
@@ -111,7 +191,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
       const regexPattern = new RegExp(`==(?:pink:|yellow:|green:|blue:|purple:)?${escapedText}==`, 'gi');
       
       let newContent;
-      const isAlreadyHighlighted = regexPattern.test(chat.content);
+      const isAlreadyHighlighted = chat.content.match(regexPattern) !== null;
       
       if (color === 'remove') {
         if (isAlreadyHighlighted) {
@@ -143,17 +223,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
     setSelectionInfo(null);
   };
 
-  const handleToggleEdit = (idx) => {
-    if (editingIdx === idx) {
-      handleSaveEdit(idx);
-    } else {
-      setEditingIdx(idx);
-      setEditingText(chatHistory[idx].content);
-      setSelectionInfo(null);
-    }
-  };
-
-  const handleSaveEdit = (idx) => {
+  const handleSaveEdit = useCallback((idx) => {
     setChatHistory(prev => {
       const updated = [...prev];
       updated[idx] = {
@@ -161,12 +231,22 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
         content: editingText
       };
       if (idx === 0) {
-        setInitialResponse(editingText);
+        setInitialResponse(updated[idx].content);
       }
       return updated;
     });
     setEditingIdx(-1);
-  };
+  }, [editingText]);
+
+  const handleToggleEdit = useCallback((idx) => {
+    if (editingIdx === idx) {
+      handleSaveEdit(idx);
+    } else {
+      setEditingIdx(idx);
+      setEditingText(chatHistory[idx].content);
+      setSelectionInfo(null);
+    }
+  }, [editingIdx, chatHistory, handleSaveEdit]);
 
   // Handle Drag & Drop / File Uploads for Step 1
   const handleScreenshotUpload = (e) => {
@@ -280,6 +360,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
       });
       triggerToast('外部の専門的見解の検索に成功しました', 'success');
     } catch (e) {
+      console.error(e);
       triggerToast('ウェブ検索に失敗しました', 'warning');
     } finally {
       setIsSearchingLinks(false);
@@ -530,18 +611,8 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                           className="highlighter-color-dot"
                           title={item.label}
                           style={{
-                            width: '20px',
-                            height: '20px',
-                            borderRadius: '50%',
                             background: item.color,
-                            border: '1px solid rgba(255,255,255,0.3)',
-                            cursor: 'pointer',
-                            padding: 0,
-                            boxShadow: '0 0 6px rgba(0,0,0,0.3)',
-                            transition: 'transform 0.15s ease'
                           }}
-                          onMouseEnter={(e) => e.target.style.transform = 'scale(1.2)'}
-                          onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
                           onMouseDown={(e) => {
                             e.preventDefault();
                             handleApplyHighlight(item.name);
@@ -553,20 +624,7 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
                       
                       <button
                         title="消しゴム"
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          color: '#ff4d4d',
-                          cursor: 'pointer',
-                          fontSize: '12px',
-                          padding: '2px 4px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          transition: 'transform 0.15s ease'
-                        }}
-                        onMouseEnter={(e) => e.target.style.transform = 'scale(1.2)'}
-                        onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                        className="highlighter-eraser-btn"
                         onMouseDown={(e) => {
                           e.preventDefault();
                           handleApplyHighlight('remove');
@@ -579,68 +637,19 @@ export default function Studio({ initialPointId, onSaveSuccess, triggerToast }) 
 
                   <div className="studio-chat-messages">
                     {chatHistory.map((chat, idx) => (
-                      <div key={idx} className={`chat-bubble-wrapper ${chat.role === 'user' ? 'user' : 'assistant'}`}>
-                        <span className="chat-bubble-sender" style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-                          <span>{chat.role === 'user' ? '受験生' : 'Gemini AI'}</span>
-                          {chat.role !== 'user' && (
-                            <button 
-                              className="chat-bubble-edit-btn" 
-                              onClick={() => handleToggleEdit(idx)}
-                              style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '11px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
-                            >
-                              {editingIdx === idx ? '💾 保存' : '✏️ 編集'}
-                            </button>
-                          )}
-                        </span>
-                        
-                        {editingIdx === idx ? (
-                          <div className="chat-bubble" style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-medium)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px', alignSelf: 'stretch', width: '100%' }}>
-                            <textarea
-                              className="chat-bubble-textarea"
-                              value={editingText}
-                              onChange={(e) => setEditingText(e.target.value)}
-                              style={{ width: '100%', minHeight: '150px', background: 'transparent', color: '#fff', border: 'none', outline: 'none', fontSize: '13px', fontFamily: 'inherit', resize: 'vertical', lineHeight: '1.6' }}
-                              placeholder="解答を編集します。==テキスト== で蛍光筆でハイライトできます。"
-                            />
-                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                              <button 
-                                className="btn btn-secondary" 
-                                style={{ padding: '3px 8px', fontSize: '11px' }}
-                                onClick={() => setEditingIdx(-1)}
-                              >
-                                キャンセル
-                              </button>
-                              <button 
-                                className="btn btn-primary" 
-                                style={{ padding: '3px 8px', fontSize: '11px' }}
-                                onClick={() => handleSaveEdit(idx)}
-                              >
-                                保存
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div 
-                            className="chat-bubble"
-                            style={{ cursor: highlighterMode ? 'text' : 'default' }}
-                            onMouseUp={(e) => handleTextSelection(idx, e)}
-                          >
-                            <div dangerouslySetInnerHTML={{ __html: renderMarkdown(chat.content) }} />
-                            {chat.attachments && chat.attachments.length > 0 && (
-                              <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
-                                {chat.attachments.map((img, iIdx) => (
-                                  <img 
-                                    key={iIdx} 
-                                    src={img} 
-                                    alt="附件" 
-                                    style={{ width: '45px', height: '45px', borderRadius: '4px', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.2)' }}
-                                  />
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                      <ChatBubble
+                        key={idx}
+                        chat={chat}
+                        idx={idx}
+                        highlighterMode={highlighterMode}
+                        editingIdx={editingIdx}
+                        editingText={editingText}
+                        setEditingText={setEditingText}
+                        setEditingIdx={setEditingIdx}
+                        handleToggleEdit={handleToggleEdit}
+                        handleSaveEdit={handleSaveEdit}
+                        handleTextSelection={handleTextSelection}
+                      />
                     ))}
                     <div ref={chatEndRef} />
                   </div>
